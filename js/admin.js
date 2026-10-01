@@ -75,7 +75,10 @@
     }).then(function (r) {
       if (!r.ok) {
         return r.json().catch(function () { return {}; }).then(function (j) {
-          var e = new Error(j.message || "GitHub API error " + r.status);
+          var text = j.message || "GitHub API error " + r.status;
+          if (r.status === 403 && /not accessible by (personal access|integration)/i.test(text)) text = NO_WRITE_MSG;
+          if (r.status === 404 && path === "") text = "GitHub couldn't find the repo with this token. Make sure the token has access to " + REPO + ".";
+          var e = new Error(text);
           e.status = r.status;
           throw e;
         });
@@ -94,11 +97,16 @@
     return readFile("blog/posts.json").then(JSON.parse);
   }
 
+  var NO_WRITE_MSG = "Your token can read but not write to the repo. On GitHub, edit the token: " +
+    "Repository access → Only select repositories → " + REPO + ", and Repository permissions → " +
+    "Contents → Read and write. Then try again (the token itself doesn't change).";
+
+  // Confirm the token itself can write. The repo's `permissions` field reflects the
+  // account, not the token, so instead create an empty blob: it needs Contents write
+  // access and changes nothing (unreferenced blobs are never part of a commit).
   function verifyToken() {
-    return gh("").then(function (repo) {
-      if (!repo.permissions || !repo.permissions.push) {
-        throw new Error("This token can't write to the repo. Give it Contents: Read and write.");
-      }
+    return gh("").then(function () {
+      return gh("/git/blobs", { method: "POST", body: { content: "", encoding: "utf-8" } });
     });
   }
 

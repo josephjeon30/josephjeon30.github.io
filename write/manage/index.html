@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Manage Posts</title>
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="name" href="../../">Your Name</a>
+      <ul>
+        <li><a href="../../blog/">Blog</a></li>
+        <li><a href="../">Write</a></li>
+        <li><button class="link-btn" id="lock" hidden>Lock</button></li>
+      </ul>
+    </nav>
+
+    <div id="auth" hidden></div>
+
+    <section id="app" hidden>
+      <div class="manage-head">
+        <h1>Posts <span class="muted" id="count"></span></h1>
+        <a class="run-btn as-link" href="../">+ New post</a>
+      </div>
+      <input type="search" id="search" placeholder="Search titles and summaries…" aria-label="Search posts">
+      <p class="form-msg" id="manage-msg"></p>
+      <ul class="manage-list" id="list"></ul>
+    </section>
+  </div>
+
+  <script src="../../js/admin.js"></script>
+  <script src="../../js/manage.js"></script>
+</body>
+</html>

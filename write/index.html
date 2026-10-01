@@ -20,45 +20,15 @@
       <a class="name" href="../">Your Name</a>
       <ul>
         <li><a href="../blog/">Blog</a></li>
+        <li><a href="manage/">Manage posts</a></li>
         <li><button class="link-btn" id="lock" hidden>Lock</button></li>
       </ul>
     </nav>
 
-    <!-- First-time setup: store the GitHub token, encrypted with a password -->
-    <section class="panel" id="setup" hidden>
-      <h1>Set up the editor</h1>
-      <p class="muted">Publishing commits to your repo through the GitHub API, so this page needs a
-        <strong>fine-grained personal access token</strong> limited to this one repo.
-        It's encrypted with your password and stored only in this browser.</p>
-      <ol class="muted small">
-        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a>.</li>
-        <li>Repository access: <strong>Only select repositories</strong> → <code>josephjeon30.github.io</code>.</li>
-        <li>Permissions → Repository permissions → <strong>Contents: Read and write</strong>.</li>
-        <li>Generate, copy the token, and paste it below.</li>
-      </ol>
-      <form id="setup-form" class="form">
-        <label>GitHub token <input type="password" id="setup-token" autocomplete="off" required></label>
-        <label>Choose a password <input type="password" id="setup-pw" autocomplete="new-password" minlength="8" required></label>
-        <label>Confirm password <input type="password" id="setup-pw2" autocomplete="new-password" minlength="8" required></label>
-        <button class="run-btn" type="submit">Save &amp; unlock</button>
-        <p class="form-msg" id="setup-msg"></p>
-      </form>
-    </section>
-
-    <!-- Returning visit: unlock with the password -->
-    <section class="panel" id="unlock" hidden>
-      <h1>Locked</h1>
-      <form id="unlock-form" class="form">
-        <label>Password <input type="password" id="unlock-pw" autocomplete="current-password" required autofocus></label>
-        <button class="run-btn" type="submit">Unlock</button>
-        <p class="form-msg" id="unlock-msg"></p>
-      </form>
-      <p class="small muted">Forgot the password or need a new token?
-        <button class="link-btn" id="reset">Forget saved token</button></p>
-    </section>
+    <div id="auth" hidden></div>
 
     <!-- Editor -->
-    <section id="editor" hidden>
+    <section id="app" class="editor" hidden>
       <div class="editor-top">
         <label class="grow">Post
           <select id="existing"><option value="">+ New post</option></select>
@@ -95,6 +65,7 @@
     </section>
   </div>
 
+  <script src="../js/admin.js"></script>
   <script src="../js/editor.js"></script>
 </body>
 </html>

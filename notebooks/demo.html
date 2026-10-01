@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interactive Demo</title>
+  <link rel="stylesheet" href="../css/style.css">
+
+  <!-- Thebe: turns <pre data-executable> blocks into live Jupyter cells -->
+  <script type="text/x-thebe-config">
+    {
+      "requestKernel": true,
+      "binderOptions": {
+        "repo": "USERNAME/USERNAME.github.io",
+        "ref": "main",
+        "binderUrl": "https://mybinder.org"
+      },
+      "kernelOptions": { "name": "python3" }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/thebe@0.9.3/lib/thebe.css">
+  <script src="https://cdn.jsdelivr.net/npm/thebe@0.9.3/lib/index.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="name" href="../">Your Name</a>
+      <ul><li><a href="../">Home</a></li></ul>
+    </nav>
+
+    <header class="hero">
+      <h1>Interactive demo</h1>
+      <p>Click <strong>Activate</strong> to start a Python kernel, then run or edit any cell.
+         The first launch can take a minute while Binder builds the environment.</p>
+    </header>
+
+    <section>
+      <button class="run-btn" id="activate">Activate</button>
+      <span id="thebe-status"></span>
+    </section>
+
+    <section>
+      <h2>Hello, Python</h2>
+<pre data-executable="true" data-language="python">
+import sys
+print("Running Python", sys.version.split()[0])
+</pre>
+    </section>
+
+    <section>
+      <h2>A plot</h2>
+<pre data-executable="true" data-language="python">
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(0, 4 * np.pi, 400)
+plt.plot(x, np.sin(x) * np.exp(-x / 8))
+plt.title("Damped sine")
+plt.show()
+</pre>
+    </section>
+
+    <footer><a href="../">← Back home</a></footer>
+  </div>
+
+  <script>
+    document.getElementById("activate").addEventListener("click", function () {
+      this.disabled = true;
+      document.getElementById("thebe-status").textContent = "Starting kernel…";
+      (window.thebe || window.thebelab).bootstrap();
+    });
+  </script>
+</body>
+</html>

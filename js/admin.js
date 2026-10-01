@@ -104,7 +104,9 @@
 
   // Commit several changes in a single commit.
   // Each change is {path, content} to write, or {path, delete: true} to remove.
-  function commitFiles(changes, message) {
+  // Retries if another commit (e.g. an image upload) lands on the branch mid-way.
+  function commitFiles(changes, message, attempt) {
+    attempt = attempt || 1;
     var parent;
     return gh("/git/ref/heads/" + BRANCH)
       .then(function (ref) { parent = ref.object.sha; return gh("/git/commits/" + parent); })
@@ -126,7 +128,19 @@
       })
       .then(function (commit) {
         return gh("/git/refs/heads/" + BRANCH, { method: "PATCH", body: { sha: commit.sha } });
+      })
+      .catch(function (err) {
+        if (err.status === 422 && attempt < 3) return commitFiles(changes, message, attempt + 1);
+        throw err;
       });
+  }
+
+  // Upload a binary file (base64-encoded, no data: prefix) in its own commit.
+  function uploadFile(path, base64Content, message) {
+    return gh("/contents/" + path, {
+      method: "PUT",
+      body: { message: message, content: base64Content, branch: BRANCH },
+    });
   }
 
   function postsJson(list) {
@@ -255,6 +269,7 @@
     readFile: readFile,
     readPosts: readPosts,
     commitFiles: commitFiles,
+    uploadFile: uploadFile,
     postsJson: postsJson,
     msg: msg,
   };

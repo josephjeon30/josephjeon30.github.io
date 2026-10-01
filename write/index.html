@@ -44,7 +44,9 @@
         <div>
           <div class="toolbar">
             <button class="py-run" id="insert-cell" type="button">+ Python cell</button>
-            <span class="muted small">Markdown. <code>```python</code> blocks become runnable cells.</span>
+            <button class="py-run" id="insert-image" type="button">+ Image</button>
+            <input type="file" id="image-input" accept="image/*" multiple hidden>
+            <span class="muted small">Markdown. <code>```python</code> blocks become runnable cells. Paste or drop images.</span>
           </div>
           <textarea id="body" spellcheck="true" placeholder="Write in Markdown…"></textarea>
         </div>

@@ -196,3 +196,5 @@ a.run-btn.as-link { color: #fff; }
 @media (max-width: 560px) {
   .manage-item { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
+.editor textarea#body.dragging { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.post-body p img { display: block; margin: 16px auto; border-radius: 6px; height: auto; }

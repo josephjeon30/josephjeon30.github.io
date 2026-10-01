@@ -32,7 +32,19 @@
   var previewTimer = null;
   function schedulePreview() {
     clearTimeout(previewTimer);
-    previewTimer = setTimeout(function () { Blog.renderPost($("preview"), $("body").value); }, 500);
+    previewTimer = setTimeout(renderPreview, 500);
+  }
+
+  // Images uploaded this session aren't on the live site for ~1 minute,
+  // so the preview shows them from memory instead.
+  var localImages = {}; // site path -> object URL
+
+  function renderPreview() {
+    Blog.renderPost($("preview"), $("body").value);
+    $("preview").querySelectorAll("img").forEach(function (img) {
+      var src = img.getAttribute("src");
+      if (localImages[src]) img.src = localImages[src];
+    });
   }
 
   function saveDraft() {
@@ -46,7 +58,7 @@
     $("summary").value = summary;
     $("body").value = body;
     updateSlugLine();
-    Blog.renderPost($("preview"), body);
+    renderPreview();
   }
 
   function setUrlParam(slug) {
@@ -136,11 +148,116 @@
     ta.dispatchEvent(new Event("input"));
   });
 
+  // ---------- images ----------
+  var MAX_WIDTH = 1600; // larger photos are scaled down before upload
+  var MAX_BYTES = 10 * 1024 * 1024;
+
+  function fileToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result).split(",")[1]); };
+      r.onerror = function () { reject(new Error("Couldn't read the file")); };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  // Scale down big JPEG/PNG/WebP images. GIFs (may be animated) and SVGs pass through.
+  function shrinkImage(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return Promise.resolve(file);
+    return createImageBitmap(file).then(function (bmp) {
+      if (bmp.width <= MAX_WIDTH) return file;
+      var canvas = document.createElement("canvas");
+      canvas.width = MAX_WIDTH;
+      canvas.height = Math.round(bmp.height * MAX_WIDTH / bmp.width);
+      canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      return new Promise(function (resolve) {
+        canvas.toBlob(function (b) { resolve(b && b.size < file.size ? b : file); }, file.type, 0.85);
+      });
+    }).catch(function () { return file; });
+  }
+
+  function imageName(file) {
+    var ext = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp", "image/svg+xml": "svg" }[file.type] || "png";
+    var base = (file.name || "image").replace(/\.[^.]+$/, "");
+    if (/^image$/i.test(base)) base = "pasted";
+    var rand = Math.random().toString(36).slice(2, 6);
+    return today() + "-" + slugify(base).slice(0, 40) + "-" + rand + "." + ext;
+  }
+
+  function replaceInBody(from, to) {
+    var ta = $("body");
+    var i = ta.value.indexOf(from);
+    if (i === -1) return;
+    ta.setRangeText(to, i, i + from.length, "preserve");
+    ta.dispatchEvent(new Event("input"));
+  }
+
+  function insertImages(files) {
+    files = Array.prototype.filter.call(files, function (f) { return /^image\//.test(f.type); });
+    files.forEach(function (file) {
+      var name = imageName(file);
+      var path = "/blog/images/" + name;
+      var alt = (file.name || "image").replace(/\.[^.]+$/, "").replace(/[\[\]]/g, "");
+      var placeholder = "![Uploading " + name + "…]()";
+
+      var ta = $("body");
+      ta.focus();
+      ta.setRangeText("\n" + placeholder + "\n", ta.selectionStart, ta.selectionEnd, "end");
+      ta.dispatchEvent(new Event("input"));
+
+      shrinkImage(file)
+        .then(function (blob) {
+          if (blob.size > MAX_BYTES) throw new Error("image is over 10 MB");
+          localImages[path] = URL.createObjectURL(blob);
+          return fileToBase64(blob);
+        })
+        .then(function (b64) { return Admin.uploadFile(path.slice(1), b64, "Add image " + name); })
+        .then(function () {
+          replaceInBody(placeholder, "![" + alt + "](" + path + ")");
+          msg("publish-msg", "✓ Uploaded " + name);
+        })
+        .catch(function (err) {
+          replaceInBody(placeholder, "");
+          msg("publish-msg", "Image upload failed (" + (file.name || "pasted image") + "): " + err.message, true);
+        });
+    });
+  }
+
+  $("insert-image").addEventListener("click", function () { $("image-input").click(); });
+  $("image-input").addEventListener("change", function () {
+    insertImages(this.files);
+    this.value = "";
+  });
+
+  $("body").addEventListener("paste", function (e) {
+    var files = e.clipboardData && e.clipboardData.files;
+    if (files && files.length && Array.prototype.some.call(files, function (f) { return /^image\//.test(f.type); })) {
+      e.preventDefault();
+      insertImages(files);
+    }
+  });
+
+  $("body").addEventListener("dragover", function (e) {
+    if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, "Files") !== -1) {
+      e.preventDefault();
+      this.classList.add("dragging");
+    }
+  });
+  $("body").addEventListener("dragleave", function () { this.classList.remove("dragging"); });
+  $("body").addEventListener("drop", function (e) {
+    this.classList.remove("dragging");
+    if (e.dataTransfer && e.dataTransfer.files.length) {
+      e.preventDefault();
+      insertImages(e.dataTransfer.files);
+    }
+  });
+
   $("publish").addEventListener("click", function () {
     var title = $("title").value.trim();
     var body = $("body").value;
     if (!title) return msg("publish-msg", "Add a title first.", true);
     if (!body.trim()) return msg("publish-msg", "The post is empty.", true);
+    if (body.indexOf("![Uploading ") !== -1) return msg("publish-msg", "Wait for images to finish uploading.", true);
 
     var slug = currentSlug();
     var btn = this;

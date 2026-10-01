@@ -69,7 +69,8 @@ plt.show()
       this.disabled = true;
       statusEl.textContent = "Starting… (first launch can take a few minutes while Binder builds)";
       thebelab.bootstrap()
-        .then(function (kernel) { return kernel.ready; })
+        // Resolves once the kernel is connected and attached to the cells.
+        // (Don't wait on kernel.ready — it never resolves on some Binder hosts.)
         .then(function () { statusEl.textContent = "✓ Ready — run any cell"; })
         .catch(function (err) {
           statusEl.textContent = "Failed to start kernel: " + err;

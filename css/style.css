@@ -84,26 +84,39 @@ button.run-btn {
 
 footer { padding: 48px 0; color: var(--muted); font-size: 0.9rem; }
 
-/* Thebe cells: keep code readable in both light and dark mode */
-.thebelab-cell { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 0; }
-.thebelab-cell .CodeMirror { background: var(--code-bg); color: var(--fg); height: auto; font-size: 0.9rem; }
-.thebelab-cell .CodeMirror-gutters { background: var(--code-bg); border-color: var(--border); }
-.thebelab-cell .CodeMirror-cursor { border-left-color: var(--fg); }
-.thebelab-cell .jp-OutputArea { color: var(--fg); padding: 8px 12px; }
-.thebelab-cell .jp-OutputArea pre { color: var(--fg); margin: 0; }
-.thebelab-cell .jp-OutputArea [data-mime-type="application/vnd.jupyter.stderr"] pre { color: #e5534b; }
-.thebelab-cell .jp-OutputArea img { max-width: 100%; height: auto; background: #fff; border-radius: 6px; }
-.thebelab-button {
-  background: var(--card); color: var(--fg); border: 1px solid var(--border);
-  border-radius: 5px; padding: 3px 10px; margin: 6px 0 6px 6px; cursor: pointer;
+/* Runnable Python cells (js/pycells.js) */
+#py-status { color: var(--muted); margin-left: 10px; font-size: 0.9rem; }
+.py-cell { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--code-bg); }
+.py-cell.py-running { border-color: var(--accent); }
+.py-cell textarea {
+  width: 100%; border: 0; padding: 12px; resize: vertical;
+  background: var(--code-bg); color: var(--fg);
+  font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-.thebelab-button:hover { border-color: var(--accent); }
+.py-cell .CodeMirror { height: auto; background: var(--code-bg); color: var(--fg); font-size: 0.9rem; padding: 6px 0; }
+.py-cell .CodeMirror-gutters { background: var(--code-bg); border-right: 1px solid var(--border); }
+.py-cell .CodeMirror-linenumber { color: var(--muted); }
+.py-cell .CodeMirror-cursor { border-left-color: var(--fg); }
+.py-bar { display: flex; gap: 8px; padding: 6px 8px; border-top: 1px solid var(--border); }
+.py-run {
+  background: var(--card); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 5px; padding: 3px 12px; font-size: 0.85rem; cursor: pointer;
+}
+.py-run:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.py-run:disabled { opacity: 0.5; cursor: wait; }
+.py-output:empty { display: none; }
+.py-output { border-top: 1px solid var(--border); padding: 10px 12px; background: var(--card); }
+.py-output pre { margin: 0; padding: 0; background: none; white-space: pre-wrap; color: var(--fg); }
+.py-output pre.py-stderr { color: #d73a49; }
+.py-output img { display: block; max-width: 100%; height: auto; margin: 6px 0; background: #fff; border-radius: 6px; }
 @media (prefers-color-scheme: dark) {
-  .thebelab-cell .cm-s-default .cm-keyword { color: #c792ea; }
-  .thebelab-cell .cm-s-default .cm-string { color: #c3e88d; }
-  .thebelab-cell .cm-s-default .cm-number { color: #f78c6c; }
-  .thebelab-cell .cm-s-default .cm-def, .thebelab-cell .cm-s-default .cm-variable { color: var(--fg); }
-  .thebelab-cell .cm-s-default .cm-builtin { color: #82aaff; }
-  .thebelab-cell .cm-s-default .cm-comment { color: #7f848e; }
-  .thebelab-cell .cm-s-default .cm-operator, .thebelab-cell .cm-s-default .cm-property { color: #89ddff; }
+  .py-output pre.py-stderr { color: #ff7b72; }
+  .py-cell .cm-s-default .cm-keyword { color: #c792ea; }
+  .py-cell .cm-s-default .cm-string { color: #c3e88d; }
+  .py-cell .cm-s-default .cm-number { color: #f78c6c; }
+  .py-cell .cm-s-default .cm-def, .py-cell .cm-s-default .cm-variable { color: var(--fg); }
+  .py-cell .cm-s-default .cm-builtin { color: #82aaff; }
+  .py-cell .cm-s-default .cm-comment { color: #7f848e; }
+  .py-cell .cm-s-default .cm-operator, .py-cell .cm-s-default .cm-property { color: #89ddff; }
+  .py-cell .cm-s-default .cm-variable-2 { color: #f07178; }
 }

@@ -6,20 +6,12 @@
   <title>Interactive Demo</title>
   <link rel="stylesheet" href="../css/style.css">
 
-  <!-- Thebe: turns <pre data-executable> blocks into live Jupyter cells -->
-  <script type="text/x-thebe-config">
-    {
-      "requestKernel": true,
-      "binderOptions": {
-        "repo": "josephjeon30/josephjeon30.github.io",
-        "ref": "binder",
-        "binderUrl": "https://mybinder.org",
-        "savedSession": { "enabled": false }
-      },
-      "kernelOptions": { "name": "python3" }
-    }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/thebe@0.8.2/lib/index.js"></script>
+  <!-- Runnable Python cells: CodeMirror for editing, Pyodide (loaded by pycells.js) for running -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
+  <script src="../js/pycells.js" defer></script>
 </head>
 <body>
   <div class="wrap">
@@ -30,13 +22,13 @@
 
     <header class="hero">
       <h1>Interactive demo</h1>
-      <p>Click <strong>Activate</strong> to start a Python kernel, then run or edit any cell.
-         The first launch can take a minute while Binder builds the environment.</p>
+      <p>These cells run real Python right in your browser. Edit any cell and press
+         <strong>Run</strong> (or Shift+Enter). Cells share variables, like a notebook.</p>
     </header>
 
     <section>
-      <button class="run-btn" id="activate">Activate</button>
-      <span id="thebe-status"></span>
+      <button class="run-btn" id="py-run-all">Run all</button>
+      <span id="py-status"></span>
     </section>
 
     <section>
@@ -60,23 +52,16 @@ plt.show()
 </pre>
     </section>
 
+    <section>
+      <h2>Cells share state</h2>
+<pre data-executable="true" data-language="python">
+# x was defined in the cell above — the last expression is displayed
+f"x has {len(x)} points, max {x.max():.2f}"
+</pre>
+    </section>
+
     <footer><a href="../">← Back home</a></footer>
   </div>
 
-  <script>
-    var statusEl = document.getElementById("thebe-status");
-    document.getElementById("activate").addEventListener("click", function () {
-      this.disabled = true;
-      statusEl.textContent = "Starting… (first launch can take a few minutes while Binder builds)";
-      thebelab.bootstrap()
-        // Resolves once the kernel is connected and attached to the cells.
-        // (Don't wait on kernel.ready — it never resolves on some Binder hosts.)
-        .then(function () { statusEl.textContent = "✓ Ready — run any cell"; })
-        .catch(function (err) {
-          statusEl.textContent = "Failed to start kernel: " + err;
-          document.getElementById("activate").disabled = false;
-        });
-    });
-  </script>
 </body>
 </html>

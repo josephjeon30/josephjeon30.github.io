@@ -1,5 +1,9 @@
-Welcome to the blog! Posts are written in **Markdown**, and Python code blocks
-become cells you can run right in the browser.
+Welcome to a new blog! In the great 2026!
+
+This site will serve as a journal to record any of my whims, be it creative or computational. I plan to dabble in a lot of things, but as I do want this site to double as a portfolio, I would like to show off my computational skills as much as possible.
+
+Posts are written in **Markdown**, and Python code blocks
+become cells you can run right in the browser (powered by Pyodide).
 
 ```python
 import numpy as np

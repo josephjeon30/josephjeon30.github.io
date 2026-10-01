@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blog</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+  <script src="../js/pycells.js"></script>
+  <script src="../js/blog.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="name" href="../">Your Name</a>
+      <ul>
+        <li><a href="../">Home</a></li>
+        <li><a href="./">Blog</a></li>
+      </ul>
+    </nav>
+
+    <article>
+      <header class="post-header">
+        <h1 id="title">Loading…</h1>
+        <div class="post-meta" id="date"></div>
+      </header>
+      <div class="post-tools" id="tools" hidden>
+        <button class="run-btn" id="py-run-all">Run all cells</button>
+        <span id="py-status"></span>
+      </div>
+      <div class="post-body" id="body"></div>
+    </article>
+
+    <footer><a href="./">← All posts</a></footer>
+  </div>
+
+  <script>
+    (function () {
+      var slug = new URLSearchParams(location.search).get("p") || "";
+      var titleEl = document.getElementById("title");
+
+      function fail(msg) { titleEl.textContent = msg; }
+      if (!/^[a-z0-9-]+$/.test(slug)) return fail("Post not found");
+
+      fetch("posts.json", { cache: "no-cache" })
+        .then(function (r) { return r.json(); })
+        .then(function (posts) {
+          var post = posts.find(function (p) { return p.slug === slug; });
+          if (!post) throw new Error("Post not found");
+          return fetch("posts/" + slug + ".md", { cache: "no-cache" }).then(function (r) {
+            if (!r.ok) throw new Error("Post not found");
+            return r.text().then(function (md) { return { post: post, md: md }; });
+          });
+        })
+        .then(function (res) {
+          document.title = res.post.title;
+          titleEl.textContent = res.post.title;
+          document.getElementById("date").textContent = Blog.formatDate(res.post.date);
+          var body = document.getElementById("body");
+          Blog.renderPost(body, res.md);
+          if (body.querySelector(".py-cell")) document.getElementById("tools").hidden = false;
+        })
+        .catch(function (err) { fail(err.message); });
+    })();
+  </script>
+</body>
+</html>

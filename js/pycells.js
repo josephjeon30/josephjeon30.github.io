@@ -181,20 +181,34 @@
     return cell;
   }
 
-  function init() {
-    var pres = document.querySelectorAll('pre[data-executable="true"]');
+  var allCells = [];
+  var runAllBound = false;
+
+  // Turn every <pre data-executable="true"> inside `root` into a cell.
+  // Call again after inserting new content (e.g. a rendered blog post).
+  function init(root) {
+    var pres = (root || document).querySelectorAll('pre[data-executable="true"]');
     var cells = Array.prototype.map.call(pres, makeCell);
+    allCells = allCells.filter(function (c) { return document.contains(c.root); }).concat(cells);
 
     var runAll = document.getElementById("py-run-all");
-    if (runAll) runAll.addEventListener("click", function () { cells.forEach(runCell); });
+    if (runAll && !runAllBound) {
+      runAllBound = true;
+      runAll.addEventListener("click", function () {
+        allCells.filter(function (c) { return document.contains(c.root); }).forEach(runCell);
+      });
+    }
 
     // Start downloading Python in the background so the first Run is quick.
-    if (cells.length) {
+    if (cells.length && !pyodideReady) {
       var warm = function () { getPyodide().catch(function () {}); };
       if ("requestIdleCallback" in window) requestIdleCallback(warm); else setTimeout(warm, 1000);
     }
+    return cells;
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  window.PyCells = { init: init };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { init(); });
   else init();
 })();

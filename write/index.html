@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Post Editor</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+  <script src="../js/pycells.js"></script>
+  <script src="../js/blog.js"></script>
+</head>
+<body>
+  <div class="wrap wide">
+    <nav>
+      <a class="name" href="../">Your Name</a>
+      <ul>
+        <li><a href="../blog/">Blog</a></li>
+        <li><button class="link-btn" id="lock" hidden>Lock</button></li>
+      </ul>
+    </nav>
+
+    <!-- First-time setup: store the GitHub token, encrypted with a password -->
+    <section class="panel" id="setup" hidden>
+      <h1>Set up the editor</h1>
+      <p class="muted">Publishing commits to your repo through the GitHub API, so this page needs a
+        <strong>fine-grained personal access token</strong> limited to this one repo.
+        It's encrypted with your password and stored only in this browser.</p>
+      <ol class="muted small">
+        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a>.</li>
+        <li>Repository access: <strong>Only select repositories</strong> → <code>josephjeon30.github.io</code>.</li>
+        <li>Permissions → Repository permissions → <strong>Contents: Read and write</strong>.</li>
+        <li>Generate, copy the token, and paste it below.</li>
+      </ol>
+      <form id="setup-form" class="form">
+        <label>GitHub token <input type="password" id="setup-token" autocomplete="off" required></label>
+        <label>Choose a password <input type="password" id="setup-pw" autocomplete="new-password" minlength="8" required></label>
+        <label>Confirm password <input type="password" id="setup-pw2" autocomplete="new-password" minlength="8" required></label>
+        <button class="run-btn" type="submit">Save &amp; unlock</button>
+        <p class="form-msg" id="setup-msg"></p>
+      </form>
+    </section>
+
+    <!-- Returning visit: unlock with the password -->
+    <section class="panel" id="unlock" hidden>
+      <h1>Locked</h1>
+      <form id="unlock-form" class="form">
+        <label>Password <input type="password" id="unlock-pw" autocomplete="current-password" required autofocus></label>
+        <button class="run-btn" type="submit">Unlock</button>
+        <p class="form-msg" id="unlock-msg"></p>
+      </form>
+      <p class="small muted">Forgot the password or need a new token?
+        <button class="link-btn" id="reset">Forget saved token</button></p>
+    </section>
+
+    <!-- Editor -->
+    <section id="editor" hidden>
+      <div class="editor-top">
+        <label class="grow">Post
+          <select id="existing"><option value="">+ New post</option></select>
+        </label>
+        <span class="muted small" id="draft-msg"></span>
+      </div>
+      <label>Title <input type="text" id="title" placeholder="My new post"></label>
+      <label>Summary <span class="muted small">(optional, shown on the blog list)</span>
+        <input type="text" id="summary"></label>
+      <div class="muted small" id="slug-line"></div>
+
+      <div class="editor-grid">
+        <div>
+          <div class="toolbar">
+            <button class="py-run" id="insert-cell" type="button">+ Python cell</button>
+            <span class="muted small">Markdown. <code>```python</code> blocks become runnable cells.</span>
+          </div>
+          <textarea id="body" spellcheck="true" placeholder="Write in Markdown…"></textarea>
+        </div>
+        <div>
+          <div class="toolbar">
+            <strong class="small">Preview</strong>
+            <button class="py-run" id="py-run-all" type="button">Run all</button>
+            <span id="py-status" class="small"></span>
+          </div>
+          <div class="preview post-body" id="preview"></div>
+        </div>
+      </div>
+
+      <div class="publish-bar">
+        <button class="run-btn" id="publish">Publish</button>
+        <span class="form-msg" id="publish-msg"></span>
+      </div>
+    </section>
+  </div>
+
+  <script src="../js/editor.js"></script>
+</body>
+</html>

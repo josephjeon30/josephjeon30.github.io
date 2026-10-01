@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blog</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="name" href="../">Your Name</a>
+      <ul>
+        <li><a href="../">Home</a></li>
+        <li><a href="./">Blog</a></li>
+      </ul>
+    </nav>
+
+    <header class="hero">
+      <h1>Blog</h1>
+      <p>Notes, experiments and runnable code.</p>
+    </header>
+
+    <section>
+      <ul class="post-list" id="posts"><li class="muted">Loading…</li></ul>
+    </section>
+
+    <footer>© 2026 Your Name</footer>
+  </div>
+
+  <script>
+    fetch("posts.json", { cache: "no-cache" })
+      .then(function (r) { return r.json(); })
+      .then(function (posts) {
+        var list = document.getElementById("posts");
+        list.innerHTML = "";
+        if (!posts.length) {
+          list.innerHTML = '<li class="muted">No posts yet.</li>';
+          return;
+        }
+        posts.forEach(function (p) {
+          var li = document.createElement("li");
+          var a = document.createElement("a");
+          a.href = "post.html?p=" + encodeURIComponent(p.slug);
+          a.textContent = p.title;
+          var meta = document.createElement("div");
+          meta.className = "post-meta";
+          meta.textContent = new Date(p.date + "T00:00:00").toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+          li.appendChild(a);
+          li.appendChild(meta);
+          if (p.summary) {
+            var s = document.createElement("p");
+            s.textContent = p.summary;
+            li.appendChild(s);
+          }
+          list.appendChild(li);
+        });
+      })
+      .catch(function () {
+        document.getElementById("posts").innerHTML = '<li class="muted">Couldn\'t load posts.</li>';
+      });
+  </script>
+</body>
+</html>

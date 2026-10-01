@@ -83,3 +83,27 @@ button.run-btn {
 #thebe-status { color: var(--muted); margin-left: 10px; font-size: 0.9rem; }
 
 footer { padding: 48px 0; color: var(--muted); font-size: 0.9rem; }
+
+/* Thebe cells: keep code readable in both light and dark mode */
+.thebelab-cell { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 0; }
+.thebelab-cell .CodeMirror { background: var(--code-bg); color: var(--fg); height: auto; font-size: 0.9rem; }
+.thebelab-cell .CodeMirror-gutters { background: var(--code-bg); border-color: var(--border); }
+.thebelab-cell .CodeMirror-cursor { border-left-color: var(--fg); }
+.thebelab-cell .jp-OutputArea { color: var(--fg); padding: 8px 12px; }
+.thebelab-cell .jp-OutputArea pre { color: var(--fg); margin: 0; }
+.thebelab-cell .jp-OutputArea [data-mime-type="application/vnd.jupyter.stderr"] pre { color: #e5534b; }
+.thebelab-cell .jp-OutputArea img { max-width: 100%; height: auto; background: #fff; border-radius: 6px; }
+.thebelab-button {
+  background: var(--card); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 5px; padding: 3px 10px; margin: 6px 0 6px 6px; cursor: pointer;
+}
+.thebelab-button:hover { border-color: var(--accent); }
+@media (prefers-color-scheme: dark) {
+  .thebelab-cell .cm-s-default .cm-keyword { color: #c792ea; }
+  .thebelab-cell .cm-s-default .cm-string { color: #c3e88d; }
+  .thebelab-cell .cm-s-default .cm-number { color: #f78c6c; }
+  .thebelab-cell .cm-s-default .cm-def, .thebelab-cell .cm-s-default .cm-variable { color: var(--fg); }
+  .thebelab-cell .cm-s-default .cm-builtin { color: #82aaff; }
+  .thebelab-cell .cm-s-default .cm-comment { color: #7f848e; }
+  .thebelab-cell .cm-s-default .cm-operator, .thebelab-cell .cm-s-default .cm-property { color: #89ddff; }
+}

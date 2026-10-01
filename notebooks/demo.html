@@ -13,13 +13,13 @@
       "binderOptions": {
         "repo": "josephjeon30/josephjeon30.github.io",
         "ref": "main",
-        "binderUrl": "https://mybinder.org"
+        "binderUrl": "https://mybinder.org",
+        "savedSession": { "enabled": false }
       },
       "kernelOptions": { "name": "python3" }
     }
   </script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/thebe@0.9.3/lib/thebe.css">
-  <script src="https://cdn.jsdelivr.net/npm/thebe@0.9.3/lib/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/thebe@0.8.2/lib/index.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -64,10 +64,17 @@ plt.show()
   </div>
 
   <script>
+    var statusEl = document.getElementById("thebe-status");
     document.getElementById("activate").addEventListener("click", function () {
       this.disabled = true;
-      document.getElementById("thebe-status").textContent = "Starting kernel…";
-      (window.thebe || window.thebelab).bootstrap();
+      statusEl.textContent = "Starting… (first launch can take a few minutes while Binder builds)";
+      thebelab.bootstrap()
+        .then(function (kernel) { return kernel.ready; })
+        .then(function () { statusEl.textContent = "✓ Ready — run any cell"; })
+        .catch(function (err) {
+          statusEl.textContent = "Failed to start kernel: " + err;
+          document.getElementById("activate").disabled = false;
+        });
     });
   </script>
 </body>

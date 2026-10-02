@@ -21,6 +21,9 @@
 
 * { box-sizing: border-box; }
 
+/* Images are centered by default everywhere */
+img { display: block; max-width: 100%; height: auto; margin-left: auto; margin-right: auto; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -108,7 +111,7 @@ footer { padding: 48px 0; color: var(--muted); font-size: 0.9rem; }
 .py-output { border-top: 1px solid var(--border); padding: 10px 12px; background: var(--card); }
 .py-output pre { margin: 0; padding: 0; background: none; white-space: pre-wrap; color: var(--fg); }
 .py-output pre.py-stderr { color: #d73a49; }
-.py-output img { display: block; max-width: 100%; height: auto; margin: 6px 0; background: #fff; border-radius: 6px; }
+.py-output img { margin-top: 6px; margin-bottom: 6px; background: #fff; border-radius: 6px; }
 @media (prefers-color-scheme: dark) {
   .py-output pre.py-stderr { color: #ff7b72; }
   .py-cell .cm-s-default .cm-keyword { color: #c792ea; }
@@ -133,7 +136,6 @@ footer { padding: 48px 0; color: var(--muted); font-size: 0.9rem; }
 .post-header h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 6px; }
 .post-tools { margin: 16px 0; }
 .post-body { overflow-wrap: break-word; }
-.post-body img { max-width: 100%; }
 .post-body .py-cell { margin: 16px 0; }
 .post-body h2, .post-body h3 { margin-top: 1.6em; }
 .post-body blockquote { margin: 0; padding-left: 14px; border-left: 3px solid var(--border); color: var(--muted); }
@@ -197,4 +199,4 @@ a.run-btn.as-link { color: #fff; }
   .manage-item { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
 .editor textarea#body.dragging { outline: 2px dashed var(--accent); outline-offset: -2px; }
-.post-body p img { display: block; margin: 16px auto; border-radius: 6px; height: auto; }
+.post-body p img { margin-top: 16px; margin-bottom: 16px; border-radius: 6px; }

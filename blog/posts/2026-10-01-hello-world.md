@@ -25,3 +25,7 @@ Code that shouldn't run can use a `python-static` block:
 ```python-static
 # this is just displayed, not executed
 ```
+
+(The inner workings behind this journal entry)
+
+![image](/blog/images/2026-10-01-pasted-obbf.png)

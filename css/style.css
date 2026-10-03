@@ -1,22 +1,13 @@
 :root {
-  --bg: #fbfaf8;
-  --fg: #1d1d1f;
-  --muted: #6b6b70;
-  --accent: #2f6fdb;
-  --card: #ffffff;
-  --border: #e4e2dd;
-  --code-bg: #f3f2ef;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141416;
-    --fg: #ececee;
-    --muted: #9a9aa2;
-    --accent: #7aa7ff;
-    --card: #1c1c1f;
-    --border: #2c2c31;
-    --code-bg: #202024;
-  }
+  /* Light beige theme */
+  --bg: #f8f3e8;
+  --fg: #2b2620;
+  --muted: #7b7061;
+  --accent: #a4552b;
+  --card: #fdfaf3;
+  --border: #e4dac6;
+  --code-bg: #f0e9d9;
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -83,7 +74,6 @@ pre { background: var(--code-bg); padding: 14px; border-radius: 8px; overflow-x:
   font-size: 0.95rem;
   cursor: pointer;
 }
-#thebe-status { color: var(--muted); margin-left: 10px; font-size: 0.9rem; }
 
 footer { padding: 48px 0; color: var(--muted); font-size: 0.9rem; }
 
@@ -112,17 +102,6 @@ footer { padding: 48px 0; color: var(--muted); font-size: 0.9rem; }
 .py-output pre { margin: 0; padding: 0; background: none; white-space: pre-wrap; color: var(--fg); }
 .py-output pre.py-stderr { color: #d73a49; }
 .py-output img { margin-top: 6px; margin-bottom: 6px; background: #fff; border-radius: 6px; }
-@media (prefers-color-scheme: dark) {
-  .py-output pre.py-stderr { color: #ff7b72; }
-  .py-cell .cm-s-default .cm-keyword { color: #c792ea; }
-  .py-cell .cm-s-default .cm-string { color: #c3e88d; }
-  .py-cell .cm-s-default .cm-number { color: #f78c6c; }
-  .py-cell .cm-s-default .cm-def, .py-cell .cm-s-default .cm-variable { color: var(--fg); }
-  .py-cell .cm-s-default .cm-builtin { color: #82aaff; }
-  .py-cell .cm-s-default .cm-comment { color: #7f848e; }
-  .py-cell .cm-s-default .cm-operator, .py-cell .cm-s-default .cm-property { color: #89ddff; }
-  .py-cell .cm-s-default .cm-variable-2 { color: #f07178; }
-}
 
 /* Blog */
 .muted { color: var(--muted); }
@@ -173,9 +152,6 @@ nav .link-btn { color: var(--muted); text-decoration: none; }
 @media (max-width: 800px) {
   .editor-grid { grid-template-columns: 1fr; }
   .editor textarea#body, .preview { min-height: 40vh; }
-}
-@media (prefers-color-scheme: dark) {
-  .form-msg.error { color: #ff7b72; }
 }
 
 /* Manage posts */

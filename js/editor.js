@@ -5,6 +5,9 @@
   var DRAFT_KEY = "blog-editor-draft";
 
   var posts = []; // contents of blog/posts.json
+  var projects = []; // contents of projects/projects.json
+  var newProjects = []; // projects created here, saved with the next publish
+  var NEW_PROJECT = "__new__";
   var editing = null; // existing post being edited, or null for a new post
 
   function $(id) { return document.getElementById(id); }
@@ -49,14 +52,38 @@
 
   function saveDraft() {
     if (editing) return; // drafts are only for new posts
-    store(DRAFT_KEY, JSON.stringify({ title: $("title").value, summary: $("summary").value, body: $("body").value }));
+    store(DRAFT_KEY, JSON.stringify({ title: $("title").value, summary: $("summary").value, body: $("body").value, project: $("project").value }));
     $("draft-msg").textContent = "Draft saved in this browser";
   }
 
-  function setForm(title, summary, body) {
+  function fillProjectSelect() {
+    var sel = $("project");
+    var current = sel.value;
+    sel.length = 1;
+    projects.concat(newProjects).forEach(function (p) {
+      var o = document.createElement("option");
+      o.value = p.slug;
+      o.textContent = p.title + (newProjects.indexOf(p) !== -1 ? " (new)" : "");
+      sel.appendChild(o);
+    });
+    var add = document.createElement("option");
+    add.value = NEW_PROJECT;
+    add.textContent = "+ New project…";
+    sel.appendChild(add);
+    sel.value = current;
+    if (sel.value !== current) sel.value = "";
+  }
+
+  function setProject(slug) {
+    $("project").value = slug || "";
+    if ($("project").value !== (slug || "")) $("project").value = ""; // project no longer exists
+  }
+
+  function setForm(title, summary, body, project) {
     $("title").value = title;
     $("summary").value = summary;
     $("body").value = body;
+    setProject(project);
     updateSlugLine();
     renderPreview();
   }
@@ -89,9 +116,9 @@
     setUrlParam(null);
     var d = null;
     try { d = JSON.parse(load(DRAFT_KEY) || "null"); } catch (e) {}
-    if (d) { setForm(d.title, d.summary, d.body); $("draft-msg").textContent = "Restored your draft"; }
+    if (d) { setForm(d.title, d.summary, d.body, d.project); $("draft-msg").textContent = "Restored your draft"; }
     else {
-      setForm("", "", "Write your post here.\n\n```python\nprint(\"Hello from Python!\")\n```\n");
+      setForm("", "", "Write your post here.\n\n```python\nprint(\"Hello from Python!\")\n```\n", "");
       $("draft-msg").textContent = "";
     }
   }
@@ -106,21 +133,43 @@
       $("publish").textContent = "Update post";
       $("draft-msg").textContent = "";
       setUrlParam(slug);
-      setForm(post.title, post.summary || "", body);
+      setForm(post.title, post.summary || "", body, post.project);
       msg("publish-msg", "");
     }).catch(function (err) { msg("publish-msg", err.message, true); });
   }
 
   function openEditor() {
     var wanted = new URLSearchParams(location.search).get("edit");
-    if (!wanted) newPost();
-    loadPosts()
+    Admin.readProjects()
+      .catch(function () { return []; }) // no projects file yet
+      .then(function (list) {
+        projects = list;
+        fillProjectSelect();
+        if (!wanted) newPost(); // after projects load, so a draft's project can be restored
+        return loadPosts();
+      })
       .then(function () { if (wanted) return editPost(wanted); })
       .catch(function (err) { msg("publish-msg", "Couldn't load existing posts: " + err.message, true); });
   }
 
   $("existing").addEventListener("change", function () {
     if (this.value) editPost(this.value); else newPost();
+  });
+
+  $("project").addEventListener("change", function () {
+    if (this.value === NEW_PROJECT) {
+      var title = (prompt("Name of the new project:") || "").trim();
+      var slug = title ? slugify(title) : "";
+      var all = projects.concat(newProjects);
+      if (!title) this.value = "";
+      else if (all.some(function (p) { return p.slug === slug; })) this.value = slug; // already exists
+      else {
+        newProjects.push({ slug: slug, title: title, summary: "" });
+        fillProjectSelect();
+        this.value = slug;
+      }
+    }
+    saveDraft();
   });
 
   ["title", "summary", "body"].forEach(function (id) {
@@ -265,8 +314,13 @@
     msg("publish-msg", "Publishing…");
 
     // Re-read posts.json right before committing so we don't overwrite other changes.
-    Admin.readPosts()
-      .then(function (list) {
+    var projectSlug = $("project").value;
+    var createdProject = newProjects.find(function (p) { return p.slug === projectSlug; });
+
+    Promise.all([Admin.readPosts(), createdProject ? Admin.readProjects().catch(function () { return []; }) : null])
+      .then(function (res) {
+        var list = res[0];
+        var projectList = res[1];
         var existingIdx = list.findIndex(function (p) { return p.slug === slug; });
         if (!editing && existingIdx !== -1) throw new Error("A post with this URL already exists. Change the title.");
         var entry = {
@@ -275,15 +329,26 @@
           date: editing ? editing.date : today(),
           summary: $("summary").value.trim(),
         };
+        if (projectSlug) entry.project = projectSlug;
         if (existingIdx !== -1) list[existingIdx] = entry; else list.unshift(entry);
         list.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
-        return Admin.commitFiles([
+        var changes = [
           { path: "blog/posts/" + slug + ".md", content: body.replace(/\s*$/, "\n") },
           { path: "blog/posts.json", content: Admin.postsJson(list) },
-        ], (editing ? "Update post: " : "New post: ") + title).then(function () { return entry; });
+        ];
+        if (createdProject && !projectList.some(function (p) { return p.slug === createdProject.slug; })) {
+          projectList.push(createdProject);
+          changes.push({ path: "projects/projects.json", content: Admin.postsJson(projectList) });
+        }
+        return Admin.commitFiles(changes, (editing ? "Update post: " : "New post: ") + title).then(function () { return entry; });
       })
       .then(function (entry) {
         if (!editing) remove(DRAFT_KEY);
+        if (createdProject) { // it's a real project now
+          newProjects.splice(newProjects.indexOf(createdProject), 1);
+          projects.push(createdProject);
+          fillProjectSelect();
+        }
         editing = entry;
         $("publish").textContent = "Update post";
         $("draft-msg").textContent = "";

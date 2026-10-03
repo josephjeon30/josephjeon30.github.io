@@ -12,6 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
   <script src="../js/pycells.js"></script>
   <script src="../js/blog.js"></script>
+  <script src="../js/projects.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -19,6 +20,7 @@
       <a class="name" href="../">Joseph Jeon</a>
       <ul>
         <li><a href="../">Home</a></li>
+        <li><a href="../projects/">Projects</a></li>
         <li><a href="./">Blog</a></li>
       </ul>
     </nav>
@@ -59,7 +61,20 @@
         .then(function (res) {
           document.title = res.post.title;
           titleEl.textContent = res.post.title;
-          document.getElementById("date").textContent = Blog.formatDate(res.post.date);
+          var dateEl = document.getElementById("date");
+          dateEl.textContent = Blog.formatDate(res.post.date);
+          if (res.post.project) {
+            Projects.load().then(function (data) {
+              var project = data.projects.find(function (x) { return x.slug === res.post.project; });
+              if (!project) return;
+              dateEl.appendChild(document.createTextNode(" · "));
+              var tag = document.createElement("a");
+              tag.className = "project-tag";
+              tag.href = Projects.projectUrl(project);
+              tag.textContent = project.title;
+              dateEl.appendChild(tag);
+            });
+          }
           var body = document.getElementById("body");
           Blog.renderPost(body, res.md);
           if (body.querySelector(".py-cell")) document.getElementById("tools").hidden = false;

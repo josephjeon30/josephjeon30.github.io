@@ -20,15 +20,34 @@
 
     <div id="auth" hidden></div>
 
-    <section id="app" hidden>
-      <div class="manage-head">
-        <h1>Posts <span class="muted" id="count"></span></h1>
-        <a class="run-btn as-link" href="../">+ New post</a>
-      </div>
-      <input type="search" id="search" placeholder="Search titles and summaries…" aria-label="Search posts">
+    <div id="app" hidden>
       <p class="form-msg" id="manage-msg"></p>
-      <ul class="manage-list" id="list"></ul>
-    </section>
+
+      <section>
+        <div class="manage-head">
+          <h1>Posts <span class="muted" id="count"></span></h1>
+          <a class="run-btn as-link" href="../">+ New post</a>
+        </div>
+        <div class="manage-filters">
+          <input type="search" id="search" placeholder="Search titles and summaries…" aria-label="Search posts">
+          <select id="project-filter" aria-label="Filter by project"></select>
+        </div>
+        <ul class="manage-list" id="list"></ul>
+      </section>
+
+      <section>
+        <div class="manage-head">
+          <h1>Projects <span class="muted" id="project-count"></span></h1>
+        </div>
+        <form class="project-form" id="project-form">
+          <input type="text" id="project-title" placeholder="Project name" aria-label="Project name" required>
+          <input type="text" id="project-summary" placeholder="Short description (optional)" aria-label="Project description">
+          <button class="run-btn" type="submit" id="project-save">Add project</button>
+          <button class="py-run" type="button" id="project-cancel" hidden>Cancel</button>
+        </form>
+        <ul class="manage-list" id="project-list"></ul>
+      </section>
+    </div>
   </div>
 
   <script src="../../js/admin.js"></script>

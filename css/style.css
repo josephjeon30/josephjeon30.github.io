@@ -176,3 +176,17 @@ a.run-btn.as-link { color: #fff; }
 }
 .editor textarea#body.dragging { outline: 2px dashed var(--accent); outline-offset: -2px; }
 .post-body p img { margin-top: 16px; margin-bottom: 16px; border-radius: 6px; }
+
+/* Projects */
+.project-tag {
+  display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 0.8rem;
+  background: var(--code-bg); border: 1px solid var(--border); color: var(--accent); text-decoration: none;
+}
+.project-tag:hover { border-color: var(--accent); }
+.post-list li .project-tag { font-size: 0.8rem; font-weight: 400; }
+.card-meta { margin-top: 10px; font-size: 0.8rem; color: var(--accent); }
+[data-project-posts] > h2 { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+.manage-filters { display: flex; gap: 8px; margin-top: 16px; }
+.manage-filters #search { margin-top: 0; flex: 1; }
+.project-form { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.project-form input { flex: 1; min-width: 160px; }

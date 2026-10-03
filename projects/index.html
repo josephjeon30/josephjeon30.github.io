@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Projects</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="../js/projects.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="name" href="../">Joseph Jeon</a>
+      <ul>
+        <li><a href="../">Home</a></li>
+        <li><a href="./">Projects</a></li>
+        <li><a href="../blog/">Blog</a></li>
+      </ul>
+    </nav>
+
+    <header class="hero">
+      <h1 id="title">Projects</h1>
+      <p id="summary"></p>
+    </header>
+
+    <!-- /projects/ lists every project; /projects/?p=slug shows one, with its posts -->
+    <section id="all" hidden><div data-project-cards></div></section>
+    <section id="posts" hidden></section>
+
+    <footer id="back" hidden><a href="./">← All projects</a></footer>
+  </div>
+
+  <script>
+    (function () {
+      var slug = new URLSearchParams(location.search).get("p");
+      if (!slug) {
+        document.getElementById("all").hidden = false;
+        return;
+      }
+      document.getElementById("back").hidden = false;
+      var titleEl = document.getElementById("title");
+      titleEl.textContent = "Loading…";
+      Projects.load().then(function (data) {
+        var project = data.projects.find(function (p) { return p.slug === slug; });
+        if (!project) { titleEl.textContent = "Project not found"; return; }
+        document.title = project.title;
+        titleEl.textContent = project.title;
+        document.getElementById("summary").textContent = project.summary || "";
+        var section = document.getElementById("posts");
+        section.setAttribute("data-project-posts", slug);
+        section.hidden = false;
+        Projects.fillProjectPosts(section, data);
+      }).catch(function () { titleEl.textContent = "Couldn't load project"; });
+    })();
+  </script>
+</body>
+</html>

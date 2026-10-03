@@ -151,6 +151,10 @@
     });
   }
 
+  function readProjects() {
+    return readFile("projects/projects.json").then(JSON.parse);
+  }
+
   function postsJson(list) {
     return JSON.stringify(list, null, 2) + "\n";
   }
@@ -276,6 +280,7 @@
     requireAuth: requireAuth,
     readFile: readFile,
     readPosts: readPosts,
+    readProjects: readProjects,
     commitFiles: commitFiles,
     uploadFile: uploadFile,
     postsJson: postsJson,

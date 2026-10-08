@@ -50,9 +50,11 @@ vec3 sky(vec3 dir) {
     return mix(vec3(0.93, 0.88, 0.78), vec3(0.47, 0.62, 0.74), clamp(dir.y * 1.3 + 0.1, 0.0, 1.0));
 }
 
-void main() {
-    // Pixel -> ray. uv is centered, with y from -1 to 1.
-    vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution) / u_resolution.y;
+// The color of the scene along the ray through one point on the screen
+// (frag_coord is in pixels and may fall between pixel centers).
+vec3 render(vec2 frag_coord) {
+    // Screen point -> ray. uv is centered, with y from -1 to 1.
+    vec2 uv = (frag_coord * 2.0 - u_resolution) / u_resolution.y;
     vec3 dir = normalize(u_cam_forward * u_cam_focal + u_cam_right * uv.x + u_cam_up * uv.y);
 
     vec3 color;
@@ -87,6 +89,27 @@ void main() {
         color = pow(color, vec3(0.4545));  // gamma correction
     }
 
+    return color;
+}
+
+void main() {
+    vec3 color;
+    if (u_antialias > 0.5) {
+        // Supersampling: average a 2x2 grid of rays inside the pixel. Smooths edges
+        // at 4x the cost.
+        color = vec3(0.0);
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
+                vec2 offset = (vec2(float(i), float(j)) + 0.5) / 2.0 - 0.5;  // ±0.25 px
+                color += render(gl_FragCoord.xy + offset);
+            }
+        }
+        color /= 4.0;
+    } else {
+        color = render(gl_FragCoord.xy);
+    }
+
+    // The 2D layer antialiases itself (see overlay), so it's drawn once on top.
     vec4 layer = overlay(gl_FragCoord.xy);
     color = mix(color, layer.rgb, layer.a);
 

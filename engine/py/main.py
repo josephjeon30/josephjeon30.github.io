@@ -43,6 +43,7 @@ uniform vec3 u_cam_up;
 uniform vec3 u_cam_forward;
 uniform float u_cam_focal;   // 1 / tan(fov / 2)
 uniform float u_edges;       // 1 = edge shading mode, 0 = normal lighting
+uniform float u_antialias;   // 1 = 4 rays per pixel, 0 = 1 ray per pixel
 """
 
 
@@ -96,15 +97,24 @@ target = np.array([0.0, 0.8, 0.0])
 box_pos = np.array([1.6, 0.5, 0.6])
 
 
-settings = {"edges": False}
+# On/off settings, each controlled by a toggle button on the page.
+settings = {"edges": False, "antialias": True}
 
 
-def toggle_edges(button, event):
-    settings["edges"] = not settings["edges"]
-    button.setAttribute("aria-pressed", "true" if settings["edges"] else "false")
+def bind_toggle(button_id, key):
+    """Make a page button flip settings[key]; the button shows the current state."""
+    def show(button):
+        button.setAttribute("aria-pressed", "true" if settings[key] else "false")
+
+    def clicked(button, event):
+        settings[key] = not settings[key]
+        show(button)
+
+    show(host.on(button_id, "click", clicked))
 
 
-host.on("edge-toggle", "click", toggle_edges)
+bind_toggle("edge-toggle", "edges")
+bind_toggle("antialias-toggle", "antialias")
 
 
 def normalize(v):
@@ -140,6 +150,7 @@ def update(dt, t):
     set_uniform("u_cam_forward", *forward)
     set_uniform("u_cam_focal", 1.0 / tan(camera["fov"] / 2))
     set_uniform("u_edges", 1.0 if settings["edges"] else 0.0)
+    set_uniform("u_antialias", 1.0 if settings["antialias"] else 0.0)
     set_uniform("u_box_pos", *box_pos)
 
     gl.drawArrays(gl.TRIANGLES, 0, 3)

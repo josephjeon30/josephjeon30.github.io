@@ -9,7 +9,8 @@ const float MAX_DISTANCE = 40.0;
 const vec3 LIGHT_DIR = normalize(vec3(0.6, 0.8, 0.4));
 
 // Edge shading mode (u_edges = 1)
-const float EDGE_PIXELS = 2.5;  // line thickness in pixels
+const float EDGE_PIXELS = 1.0;    // width of the fully inked core of each line, in pixels
+const float EDGE_SOFTNESS = 5.0;  // extra pixels over which the ink fades out (0 = crisp)
 const vec3 PAPER = vec3(0.97, 0.95, 0.90);
 const vec3 INK = vec3(0.16, 0.13, 0.10);
 const vec3 TONE = vec3(0.78, 0.72, 0.62);  // the single shadow tone (u_tone = 1)
@@ -82,7 +83,7 @@ vec3 render(vec2 frag_coord) {
             }
         }
         float pixels_from_edge = facing / max(fwidth(facing), 0.00001);
-        float edge = 1.0 - smoothstep(EDGE_PIXELS - 0.5, EDGE_PIXELS + 0.5, pixels_from_edge);
+        float edge = 1.0 - smoothstep(EDGE_PIXELS, EDGE_PIXELS + max(EDGE_SOFTNESS, 1.0), pixels_from_edge);
         float visible = hit.y >= 0.0 ? 1.0 - (1.0 - exp(-0.002 * hit.x * hit.x)) : 0.0;  // fades with distance
         color = mix(PAPER, TONE, shade * visible);
         color = mix(color, INK, edge * visible);

@@ -1,5 +1,11 @@
 [
   {
+    "slug": "graphics-engine",
+    "title": "Graphics engine",
+    "summary": "A 2D/3D engine written in Python, drawing with WebGL in your browser.",
+    "url": "engine/"
+  },
+  {
     "slug": "interactive-demo",
     "title": "Interactive demo",
     "summary": "Live Python code cells that run right in your browser.",

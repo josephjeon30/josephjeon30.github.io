@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graphics Engine</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="../js/projects.js" defer></script>
+  <style>
+    .screen-wrap { position: relative; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #14110d; }
+    #screen { display: block; width: 100%; aspect-ratio: 16 / 9; outline: none; touch-action: none; cursor: grab; }
+    #screen:active { cursor: grabbing; }
+    #overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #e9e2d2; font-size: 0.95rem; pointer-events: none;
+    }
+    .engine-bar { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 0.85rem; color: var(--muted); flex-wrap: wrap; }
+    #error { display: none; margin-top: 12px; color: #d73a49; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="wrap wide">
+    <nav>
+      <a class="name" href="../">Joseph Jeon</a>
+      <ul>
+        <li><a href="../">Home</a></li>
+        <li><a href="../projects/">Projects</a></li>
+        <li><a href="../blog/">Blog</a></li>
+      </ul>
+    </nav>
+
+    <header class="post-header">
+      <h1>Graphics engine</h1>
+      <div class="post-meta">A 2D/3D engine written in Python, drawing with WebGL in your browser.</div>
+    </header>
+
+    <section>
+      <div class="screen-wrap">
+        <canvas id="screen" tabindex="0"></canvas>
+        <div id="overlay">Loading Python…</div>
+      </div>
+      <div class="engine-bar">
+        <span>Drag to orbit · scroll to zoom · click the canvas, then WASD to move the cube</span>
+        <span id="fps"></span>
+      </div>
+      <pre id="error"></pre>
+    </section>
+
+    <!-- Blog posts tagged with this project are listed here automatically -->
+    <section data-project-posts="graphics-engine"></section>
+
+    <footer><a href="../projects/">← All projects</a></footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js"></script>
+  <script>
+    // Loads Pyodide, copies the engine's Python files (listed in py/manifest.json)
+    // into its filesystem, then runs main.py. All drawing happens from Python.
+    (function () {
+      var overlay = document.getElementById("overlay");
+      var errorEl = document.getElementById("error");
+
+      // Called from here and from host.py when Python raises.
+      window.engineError = function (text) {
+        errorEl.textContent = text;
+        errorEl.style.display = "block";
+        overlay.textContent = "Stopped — see the error below";
+        overlay.style.display = "flex";
+      };
+      window.engineReady = function () { overlay.style.display = "none"; };
+
+      function fetchText(url) {
+        return fetch(url, { cache: "no-cache" }).then(function (r) {
+          if (!r.ok) throw new Error("Couldn't load " + url + " (" + r.status + ")");
+          return r.text();
+        });
+      }
+
+      var py;
+      loadPyodide()
+        .then(function (p) {
+          py = p;
+          overlay.textContent = "Loading numpy…";
+          return py.loadPackage("numpy");
+        })
+        .then(function () {
+          overlay.textContent = "Loading engine…";
+          return fetchText("py/manifest.json");
+        })
+        .then(function (manifest) {
+          var files = JSON.parse(manifest);
+          return Promise.all(files.map(function (name) {
+            return fetchText("py/" + name).then(function (src) { py.FS.writeFile(name, src); });
+          }));
+        })
+        .then(function () { return py.runPythonAsync("import main"); })
+        .catch(function (err) { window.engineError(String(err.message || err)); });
+    })();
+  </script>
+</body>
+</html>

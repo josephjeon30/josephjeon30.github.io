@@ -1,0 +1,74 @@
+// raymarch.glsl — the renderer. For each pixel: shoot a ray from the camera,
+// step along it by the scene's distance (sphere tracing), then light the hit point.
+// Uses map(), material() and overlay() from scene.glsl.
+
+out vec4 out_color;
+
+const int MAX_STEPS = 96;
+const float MAX_DISTANCE = 40.0;
+const vec3 LIGHT_DIR = normalize(vec3(0.6, 0.8, 0.4));
+
+// Returns (distance travelled, material id). Material is -1 when nothing was hit.
+vec2 march(vec3 origin, vec3 dir) {
+    float t = 0.0;
+    for (int i = 0; i < MAX_STEPS; i++) {
+        vec2 hit = map(origin + dir * t);
+        if (hit.x < max(0.0005, 0.001 * t)) return vec2(t, hit.y);  // close enough (looser far away)
+        t += hit.x;
+        if (t > MAX_DISTANCE) break;
+    }
+    return vec2(t, -1.0);
+}
+
+// Surface normal = direction in which the distance grows fastest.
+vec3 normal_at(vec3 p) {
+    vec2 e = vec2(1.0, -1.0) * 0.0005;
+    return normalize(e.xyy * map(p + e.xyy).x + e.yyx * map(p + e.yyx).x +
+                     e.yxy * map(p + e.yxy).x + e.xxx * map(p + e.xxx).x);
+}
+
+// March toward the light; near misses darken the result, giving soft edges.
+float soft_shadow(vec3 origin, vec3 dir, float sharpness) {
+    float light = 1.0;
+    float t = 0.02;
+    for (int i = 0; i < 32; i++) {
+        float d = map(origin + dir * t).x;
+        if (d < 0.001) return 0.0;
+        light = min(light, sharpness * d / t);
+        t += clamp(d, 0.02, 0.5);
+        if (t > 12.0) break;
+    }
+    return light;
+}
+
+vec3 sky(vec3 dir) {
+    return mix(vec3(0.93, 0.88, 0.78), vec3(0.47, 0.62, 0.74), clamp(dir.y * 1.3 + 0.1, 0.0, 1.0));
+}
+
+void main() {
+    // Pixel -> ray. uv is centered, with y from -1 to 1.
+    vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution) / u_resolution.y;
+    vec3 dir = normalize(u_cam_forward * u_cam_focal + u_cam_right * uv.x + u_cam_up * uv.y);
+
+    vec3 color = sky(dir);
+    vec2 hit = march(u_cam_pos, dir);
+    if (hit.y >= 0.0) {
+        vec3 p = u_cam_pos + dir * hit.x;
+        vec3 n = normal_at(p);
+        vec3 base = material(hit.y, p);
+
+        float sun = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
+        float ambient = 0.25 + 0.15 * n.y;
+        vec3 lit = base * (sun * vec3(1.0, 0.95, 0.85) + ambient * vec3(0.75, 0.85, 1.0));
+
+        float fog = 1.0 - exp(-0.002 * hit.x * hit.x);
+        color = mix(lit, sky(dir), fog);
+    }
+
+    color = pow(color, vec3(0.4545));  // gamma correction
+
+    vec4 layer = overlay(gl_FragCoord.xy);
+    color = mix(color, layer.rgb, layer.a);
+
+    out_color = vec4(color, 1.0);
+}

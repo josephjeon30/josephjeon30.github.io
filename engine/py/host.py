@@ -11,6 +11,7 @@ rest of the code can stay plain Python + numpy:
     host.run(update)
 
     host.width, host.height      # canvas size in pixels (kept up to date)
+    host.max_pixel_ratio = 1.0   # optional: render fewer pixels on Retina screens
     host.keys                    # set of held keys, e.g. "KeyW", "ArrowLeft", "Space"
     host.mouse.x, .y             # pointer position in canvas pixels
     host.mouse.dx, .dy, .wheel   # movement / scroll since the last frame
@@ -36,6 +37,10 @@ if gl is None:
 
 width = 0
 height = 0
+
+# Upper limit on canvas pixels per CSS pixel. Retina screens report 2 or 3, which
+# means 4-9x the pixels; per-pixel work like raymarching may want 1.0 or lower.
+max_pixel_ratio = 2.0
 keys = set()
 
 
@@ -72,7 +77,7 @@ def mat4(m):
 
 def _resize():
     global width, height
-    dpr = window.devicePixelRatio or 1
+    dpr = min(window.devicePixelRatio or 1, max_pixel_ratio)
     w = max(1, int(canvas.clientWidth * dpr))
     h = max(1, int(canvas.clientHeight * dpr))
     if (w, h) != (width, height):

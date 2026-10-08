@@ -31,7 +31,7 @@
 
     <header class="post-header">
       <h1>Graphics engine</h1>
-      <div class="post-meta">A 2D/3D engine written in Python, drawing with WebGL in your browser.</div>
+      <div class="post-meta">A 2D/3D engine driven by Python: signed distance fields, raymarched on your GPU.</div>
     </header>
 
     <section>
@@ -40,7 +40,7 @@
         <div id="overlay">Loading Python…</div>
       </div>
       <div class="engine-bar">
-        <span>Drag to orbit · scroll to zoom · click the canvas, then WASD to move the cube</span>
+        <span>Drag to orbit · scroll to zoom · click the canvas, then WASD to move the box</span>
         <span id="fps"></span>
       </div>
       <pre id="error"></pre>
@@ -55,7 +55,7 @@
   <script src="https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js"></script>
   <script>
     // Loads Pyodide, copies the engine's Python files (listed in py/manifest.json)
-    // into its filesystem, then runs main.py. All drawing happens from Python.
+    // into its filesystem, then runs main.py, which builds the shader and drives it.
     (function () {
       var overlay = document.getElementById("overlay");
       var errorEl = document.getElementById("error");

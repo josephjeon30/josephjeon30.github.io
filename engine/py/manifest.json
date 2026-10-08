@@ -1,1 +1,1 @@
-["host.py", "main.py"]
+["host.py", "main.py", "sdf.glsl", "scene.glsl", "raymarch.glsl"]

@@ -12,6 +12,8 @@ const vec3 LIGHT_DIR = normalize(vec3(0.6, 0.8, 0.4));
 const float EDGE_PIXELS = 2.5;  // line thickness in pixels
 const vec3 PAPER = vec3(0.97, 0.95, 0.90);
 const vec3 INK = vec3(0.16, 0.13, 0.10);
+const vec3 TONE = vec3(0.78, 0.72, 0.62);  // the single shadow tone (u_tone = 1)
+const float TONE_THRESHOLD = 0.25;         // light level below which a point is shaded
 
 // Returns (distance travelled, material id). Material is -1 when nothing was hit.
 vec2 march(vec3 origin, vec3 dir) {
@@ -61,17 +63,29 @@ vec3 render(vec2 frag_coord) {
     vec2 hit = march(u_cam_pos, dir);
 
     if (u_edges > 0.5) {
-        // Edge mode: no lighting. A surface is inked only where it turns away from the
+        // Edge mode: no smooth lighting. A surface is inked only where it turns away from the
         // camera, i.e. where dot(view direction, normal) is close to 0.
         // "Close" is measured in screen pixels: fwidth() says how much `facing` changes
         // from one pixel to the next, so facing / fwidth(facing) is roughly the number of
         // pixels to the nearest edge. That keeps lines the same width on every shape.
         float facing = 1.0;  // 1 = facing the camera, 0 = edge-on
-        if (hit.y >= 0.0) facing = abs(dot(normal_at(u_cam_pos + dir * hit.x), dir));
+        float shade = 0.0;   // 1 = in the shadow tone, 0 = lit (left as paper)
+        if (hit.y >= 0.0) {
+            vec3 p = u_cam_pos + dir * hit.x;
+            vec3 n = normal_at(p);
+            facing = abs(dot(n, dir));
+            if (u_tone > 0.5) {
+                // One-tone shading: light is either on or off. A point takes the tone
+                // if it faces away from the light or something blocks the light.
+                float light = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
+                shade = 1.0 - smoothstep(TONE_THRESHOLD - 0.02, TONE_THRESHOLD + 0.02, light);
+            }
+        }
         float pixels_from_edge = facing / max(fwidth(facing), 0.00001);
         float edge = 1.0 - smoothstep(EDGE_PIXELS - 0.5, EDGE_PIXELS + 0.5, pixels_from_edge);
-        float fog = 1.0 - exp(-0.002 * hit.x * hit.x);
-        color = mix(PAPER, INK, hit.y >= 0.0 ? edge * (1.0 - fog) : 0.0);
+        float visible = hit.y >= 0.0 ? 1.0 - (1.0 - exp(-0.002 * hit.x * hit.x)) : 0.0;  // fades with distance
+        color = mix(PAPER, TONE, shade * visible);
+        color = mix(color, INK, edge * visible);
     } else {
         color = sky(dir);
         if (hit.y >= 0.0) {

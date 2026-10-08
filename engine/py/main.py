@@ -44,6 +44,7 @@ uniform vec3 u_cam_forward;
 uniform float u_cam_focal;   // 1 / tan(fov / 2)
 uniform float u_edges;       // 1 = edge shading mode, 0 = normal lighting
 uniform float u_antialias;   // 1 = 4 rays per pixel, 0 = 1 ray per pixel
+uniform float u_tone;        // 1 = edge mode also fills shadows with one flat tone
 """
 
 
@@ -98,7 +99,7 @@ box_pos = np.array([1.6, 0.5, 0.6])
 
 
 # On/off settings, each controlled by a toggle button on the page.
-settings = {"edges": False, "antialias": True}
+settings = {"edges": False, "tone": True, "antialias": True}
 
 
 def bind_toggle(button_id, key):
@@ -114,6 +115,7 @@ def bind_toggle(button_id, key):
 
 
 bind_toggle("edge-toggle", "edges")
+bind_toggle("tone-toggle", "tone")
 bind_toggle("antialias-toggle", "antialias")
 
 
@@ -151,6 +153,7 @@ def update(dt, t):
     set_uniform("u_cam_focal", 1.0 / tan(camera["fov"] / 2))
     set_uniform("u_edges", 1.0 if settings["edges"] else 0.0)
     set_uniform("u_antialias", 1.0 if settings["antialias"] else 0.0)
+    set_uniform("u_tone", 1.0 if settings["tone"] else 0.0)
     set_uniform("u_box_pos", *box_pos)
 
     gl.drawArrays(gl.TRIANGLES, 0, 3)

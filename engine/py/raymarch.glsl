@@ -8,6 +8,11 @@ const int MAX_STEPS = 96;
 const float MAX_DISTANCE = 40.0;
 const vec3 LIGHT_DIR = normalize(vec3(0.6, 0.8, 0.4));
 
+// Edge shading mode (u_edges = 1)
+const float EDGE_PIXELS = 2.5;  // line thickness in pixels
+const vec3 PAPER = vec3(0.97, 0.95, 0.90);
+const vec3 INK = vec3(0.16, 0.13, 0.10);
+
 // Returns (distance travelled, material id). Material is -1 when nothing was hit.
 vec2 march(vec3 origin, vec3 dir) {
     float t = 0.0;
@@ -50,22 +55,37 @@ void main() {
     vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution) / u_resolution.y;
     vec3 dir = normalize(u_cam_forward * u_cam_focal + u_cam_right * uv.x + u_cam_up * uv.y);
 
-    vec3 color = sky(dir);
+    vec3 color;
     vec2 hit = march(u_cam_pos, dir);
-    if (hit.y >= 0.0) {
-        vec3 p = u_cam_pos + dir * hit.x;
-        vec3 n = normal_at(p);
-        vec3 base = material(hit.y, p);
 
-        float sun = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
-        float ambient = 0.25 + 0.15 * n.y;
-        vec3 lit = base * (sun * vec3(1.0, 0.95, 0.85) + ambient * vec3(0.75, 0.85, 1.0));
-
+    if (u_edges > 0.5) {
+        // Edge mode: no lighting. A surface is inked only where it turns away from the
+        // camera, i.e. where dot(view direction, normal) is close to 0.
+        // "Close" is measured in screen pixels: fwidth() says how much `facing` changes
+        // from one pixel to the next, so facing / fwidth(facing) is roughly the number of
+        // pixels to the nearest edge. That keeps lines the same width on every shape.
+        float facing = 1.0;  // 1 = facing the camera, 0 = edge-on
+        if (hit.y >= 0.0) facing = abs(dot(normal_at(u_cam_pos + dir * hit.x), dir));
+        float pixels_from_edge = facing / max(fwidth(facing), 0.00001);
+        float edge = 1.0 - smoothstep(EDGE_PIXELS - 0.5, EDGE_PIXELS + 0.5, pixels_from_edge);
         float fog = 1.0 - exp(-0.002 * hit.x * hit.x);
-        color = mix(lit, sky(dir), fog);
-    }
+        color = mix(PAPER, INK, hit.y >= 0.0 ? edge * (1.0 - fog) : 0.0);
+    } else {
+        color = sky(dir);
+        if (hit.y >= 0.0) {
+            vec3 p = u_cam_pos + dir * hit.x;
+            vec3 n = normal_at(p);
+            vec3 base = material(hit.y, p);
 
-    color = pow(color, vec3(0.4545));  // gamma correction
+            float sun = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
+            float ambient = 0.25 + 0.15 * n.y;
+            vec3 lit = base * (sun * vec3(1.0, 0.95, 0.85) + ambient * vec3(0.75, 0.85, 1.0));
+
+            float fog = 1.0 - exp(-0.002 * hit.x * hit.x);
+            color = mix(lit, sky(dir), fog);
+        }
+        color = pow(color, vec3(0.4545));  // gamma correction
+    }
 
     vec4 layer = overlay(gl_FragCoord.xy);
     color = mix(color, layer.rgb, layer.a);

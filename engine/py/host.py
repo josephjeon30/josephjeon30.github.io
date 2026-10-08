@@ -16,6 +16,7 @@ rest of the code can stay plain Python + numpy:
     host.mouse.x, .y             # pointer position in canvas pixels
     host.mouse.dx, .dy, .wheel   # movement / scroll since the last frame
     host.mouse.down              # True while a button is held
+    host.on(id, "click", fn)     # react to a button or other control on the page
 """
 
 import traceback
@@ -149,6 +150,13 @@ _listen(canvas, "pointerup", _on_pointer_up)
 _listen(canvas, "pointercancel", _on_pointer_up)
 _listen(canvas, "pointermove", _on_pointer_move)
 _listen(canvas, "wheel", _on_wheel, {"passive": False})
+
+
+def on(element_id, event, fn):
+    """Call fn(element, event) when a page element fires an event: host.on("my-button", "click", fn)."""
+    element = document.getElementById(element_id)
+    _listen(element, event, lambda e: fn(element, e))
+    return element
 
 
 # ---------- main loop ----------

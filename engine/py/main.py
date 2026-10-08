@@ -42,6 +42,7 @@ uniform vec3 u_cam_right;
 uniform vec3 u_cam_up;
 uniform vec3 u_cam_forward;
 uniform float u_cam_focal;   // 1 / tan(fov / 2)
+uniform float u_edges;       // 1 = edge shading mode, 0 = normal lighting
 """
 
 
@@ -95,6 +96,17 @@ target = np.array([0.0, 0.8, 0.0])
 box_pos = np.array([1.6, 0.5, 0.6])
 
 
+settings = {"edges": False}
+
+
+def toggle_edges(button, event):
+    settings["edges"] = not settings["edges"]
+    button.setAttribute("aria-pressed", "true" if settings["edges"] else "false")
+
+
+host.on("edge-toggle", "click", toggle_edges)
+
+
 def normalize(v):
     return v / np.linalg.norm(v)
 
@@ -127,6 +139,7 @@ def update(dt, t):
     set_uniform("u_cam_up", *up)
     set_uniform("u_cam_forward", *forward)
     set_uniform("u_cam_focal", 1.0 / tan(camera["fov"] / 2))
+    set_uniform("u_edges", 1.0 if settings["edges"] else 0.0)
     set_uniform("u_box_pos", *box_pos)
 
     gl.drawArrays(gl.TRIANGLES, 0, 3)

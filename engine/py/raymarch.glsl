@@ -23,7 +23,7 @@ const float REFINE_FACING = 0.12;  // edge mode: difference in how much the surf
 const float REFINE_DEPTH = 0.08;   // both: relative jump in distance
 
 // Scribble shading (u_scribble = 1): the tone is drawn as pencil strokes
-const float SCRIBBLE_INTERVAL = 0.5;  // seconds between redraws
+const float SCRIBBLE_INTERVAL = 0.0;  // seconds between redraws; 0 = a new drawing every frame
 const float SCRIBBLE_SPACING = 7.0;   // pixels between strokes
 const float SCRIBBLE_WIDTH = 0.30;    // stroke thickness as a fraction of the spacing
 const float SCRIBBLE_SMEAR = 0.7;     // 0 = clean strokes, 1 = heavily smudged
@@ -156,9 +156,10 @@ float shaded_amount(vec3 p, vec3 n) {
 // Edge mode, part 2: the paper with its tone, flat or as pencil strokes.
 vec3 paper_color(vec2 frag_coord, float shaded) {
     if (u_scribble > 0.5) {
-        // Pencil strokes instead of a flat tone, redrawn every SCRIBBLE_INTERVAL seconds.
+        // Pencil strokes instead of a flat tone, redrawn every SCRIBBLE_INTERVAL seconds
+        // (or every frame when that is 0).
         // Dividing by u_edge_scale keeps strokes the same on-screen size at higher resolution.
-        float drawing = floor(u_time / SCRIBBLE_INTERVAL);
+        float drawing = SCRIBBLE_INTERVAL > 0.0 ? floor(u_time / SCRIBBLE_INTERVAL) : u_frame;
         return mix(PAPER, PENCIL, shaded * scribble(frag_coord / u_edge_scale, drawing));
     }
     return mix(PAPER, TONE, shaded);

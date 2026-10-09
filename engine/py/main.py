@@ -37,6 +37,7 @@ FRAGMENT_HEADER = """#version 300 es
 precision highp float;
 uniform vec2 u_resolution;   // canvas size in pixels
 uniform float u_time;        // seconds since start
+uniform float u_frame;       // frame counter (wraps around at 4096)
 uniform vec3 u_cam_pos;
 uniform vec3 u_cam_right;
 uniform vec3 u_cam_up;
@@ -183,6 +184,9 @@ def draw():
     draw_pass(2, host.width, host.height, SCALE)
 
 
+frame = {"count": 0}
+
+
 def normalize(v):
     return v / np.linalg.norm(v)
 
@@ -209,6 +213,8 @@ def update(dt, t):
 
     # --- hand everything to the shader and draw ---
     set_uniform("u_time", t)
+    frame["count"] = (frame["count"] + 1) % 4096  # kept small so shader noise stays precise
+    set_uniform("u_frame", frame["count"])
     set_uniform("u_cam_pos", *eye)
     set_uniform("u_cam_right", *right)
     set_uniform("u_cam_up", *up)

@@ -69,24 +69,39 @@ vec3 render(vec2 frag_coord) {
         // "Close" is measured in screen pixels: fwidth() says how much `facing` changes
         // from one pixel to the next, so facing / fwidth(facing) is roughly the number of
         // pixels to the nearest edge. That keeps lines the same width on every shape.
+        //
+        // u_layer picks which part to draw, so the two parts can run at different
+        // resolutions (see draw() in main.py):
+        //   0 = shade + ink together
+        //   1 = shade only (paper and shadow tone), rendered into a texture
+        //   2 = ink only, drawn over that texture
+        bool draw_shade = u_layer < 1.5;
+        bool draw_ink = u_layer < 0.5 || u_layer > 1.5;
+
         float facing = 1.0;  // 1 = facing the camera, 0 = edge-on
         float shade = 0.0;   // 1 = in the shadow tone, 0 = lit (left as paper)
         if (hit.y >= 0.0) {
             vec3 p = u_cam_pos + dir * hit.x;
             vec3 n = normal_at(p);
             facing = abs(dot(n, dir));
-            if (u_tone > 0.5) {
+            if (draw_shade && u_tone > 0.5) {
                 // One-tone shading: light is either on or off. A point takes the tone
                 // if it faces away from the light or something blocks the light.
                 float light = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
                 shade = 1.0 - smoothstep(TONE_THRESHOLD - 0.02, TONE_THRESHOLD + 0.02, light);
             }
         }
-        float pixels_from_edge = facing / max(fwidth(facing), 0.00001);
-        float edge = 1.0 - smoothstep(EDGE_PIXELS, EDGE_PIXELS + max(EDGE_SOFTNESS, 1.0), pixels_from_edge);
-        float visible = hit.y >= 0.0 ? 1.0 - (1.0 - exp(-0.002 * hit.x * hit.x)) : 0.0;  // fades with distance
-        color = mix(PAPER, TONE, shade * visible);
-        color = mix(color, INK, edge * visible);
+        float visible = hit.y >= 0.0 ? exp(-0.002 * hit.x * hit.x) : 0.0;  // fades with distance
+
+        if (draw_shade) color = mix(PAPER, TONE, shade * visible);
+        else color = texture(u_shade, frag_coord / u_resolution).rgb;  // the shade pass's result
+
+        if (draw_ink) {
+            // u_edge_scale keeps lines the same on-screen width when rendering at higher resolution
+            float pixels_from_edge = facing / max(fwidth(facing), 0.00001) / u_edge_scale;
+            float edge = 1.0 - smoothstep(EDGE_PIXELS, EDGE_PIXELS + max(EDGE_SOFTNESS, 1.0), pixels_from_edge);
+            color = mix(color, INK, edge * visible);
+        }
     } else {
         color = sky(dir);
         if (hit.y >= 0.0) {
@@ -109,9 +124,9 @@ vec3 render(vec2 frag_coord) {
 
 void main() {
     vec3 color;
-    if (u_antialias > 0.5) {
+    if (u_antialias > 0.5 && u_layer < 1.5) {
         // Supersampling: average a 2x2 grid of rays inside the pixel. Smooths edges
-        // at 4x the cost.
+        // at 4x the cost. (The high-resolution ink pass is already supersampled.)
         color = vec3(0.0);
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 2; j++) {
@@ -124,9 +139,12 @@ void main() {
         color = render(gl_FragCoord.xy);
     }
 
-    // The 2D layer antialiases itself (see overlay), so it's drawn once on top.
-    vec4 layer = overlay(gl_FragCoord.xy);
-    color = mix(color, layer.rgb, layer.a);
+    // The 2D layer antialiases itself (see overlay), so it's drawn once on top
+    // (not into the intermediate shade texture).
+    if (u_layer < 0.5 || u_layer > 1.5) {
+        vec4 layer = overlay(gl_FragCoord.xy);
+        color = mix(color, layer.rgb, layer.a);
+    }
 
     out_color = vec4(color, 1.0);
 }

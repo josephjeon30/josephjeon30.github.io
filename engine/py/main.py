@@ -45,6 +45,9 @@ uniform float u_cam_focal;   // 1 / tan(fov / 2)
 uniform float u_edges;       // 1 = edge shading mode, 0 = normal lighting
 uniform float u_antialias;   // 1 = 4 rays per pixel, 0 = 1 ray per pixel
 uniform float u_tone;        // 1 = edge mode also fills shadows with one flat tone
+uniform float u_layer;       // edge mode: 0 = shade + ink, 1 = shade only, 2 = ink over u_shade
+uniform float u_edge_scale;  // resolution multiplier of the ink pass (keeps line width constant)
+uniform sampler2D u_shade;   // the shade pass's output, read by the ink pass
 """
 
 
@@ -99,7 +102,7 @@ box_pos = np.array([1.6, 0.5, 0.6])
 
 
 # On/off settings, each controlled by a toggle button on the page.
-settings = {"edges": False, "tone": True, "antialias": True}
+settings = {"edges": False, "tone": True, "hires": True, "antialias": True}
 
 
 def bind_toggle(button_id, key):
@@ -116,7 +119,70 @@ def bind_toggle(button_id, key):
 
 bind_toggle("edge-toggle", "edges")
 bind_toggle("tone-toggle", "tone")
+bind_toggle("hires-toggle", "hires")
 bind_toggle("antialias-toggle", "antialias")
+
+
+# ---------- high-resolution edges ----------
+# With "hires" on, edge mode draws in two passes so only the outlines pay for the
+# extra pixels: the shade (paper + shadow tone, which needs shadow rays) is rendered
+# at normal resolution into a texture, then the ink is rendered at EDGE_SCALE times
+# that resolution on top of it.
+
+EDGE_SCALE = 2  # ink resolution relative to the shade
+
+shade_target = {"size": None, "texture": gl.createTexture(), "framebuffer": gl.createFramebuffer()}
+
+
+def shade_target_resize(w, h):
+    """(Re)allocate the shade texture when the canvas size changes."""
+    if shade_target["size"] == (w, h):
+        return
+    shade_target["size"] = (w, h)
+    gl.bindTexture(gl.TEXTURE_2D, shade_target["texture"])
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, None)
+    for name, value in ((gl.TEXTURE_MIN_FILTER, gl.LINEAR), (gl.TEXTURE_MAG_FILTER, gl.LINEAR),
+                        (gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE), (gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)):
+        gl.texParameteri(gl.TEXTURE_2D, name, value)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shade_target["framebuffer"])
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, shade_target["texture"], 0)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, None)
+
+
+def draw_pass(layer, width, height, edge_scale=1.0):
+    gl.viewport(0, 0, width, height)
+    set_uniform("u_resolution", width, height)
+    set_uniform("u_layer", layer)
+    set_uniform("u_edge_scale", edge_scale)
+    gl.drawArrays(gl.TRIANGLES, 0, 3)
+
+
+def draw():
+    hires = settings["edges"] and settings["hires"]
+    host.pixel_ratio = float(EDGE_SCALE) if hires else None  # takes effect on the next frame
+
+    if not hires or host.width < 2 * EDGE_SCALE:
+        draw_pass(0, host.width, host.height)  # everything in one pass
+        return
+
+    if settings["tone"]:
+        # Pass 1: shade at normal resolution, into the texture
+        w, h = host.width // EDGE_SCALE, host.height // EDGE_SCALE
+        shade_target_resize(w, h)
+        gl.bindTexture(gl.TEXTURE_2D, None)  # a texture can't be read while it's being drawn into
+        gl.bindFramebuffer(gl.FRAMEBUFFER, shade_target["framebuffer"])
+        draw_pass(1, w, h)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, None)
+        # Pass 2: ink at full canvas resolution, over the texture
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, shade_target["texture"])
+        gl.uniform1i(gl.getUniformLocation(program, "u_shade"), 0)
+        draw_pass(2, host.width, host.height, EDGE_SCALE)
+    else:
+        # No tone to precompute: one pass of paper + ink at full resolution.
+        # Supersampling on top of the doubled resolution would be 16 rays per pixel, so skip it.
+        set_uniform("u_antialias", 0.0)
+        draw_pass(0, host.width, host.height, EDGE_SCALE)
 
 
 def normalize(v):
@@ -144,7 +210,6 @@ def update(dt, t):
     box_pos[:] = np.clip(box_pos + move * 3.0 * dt, [-6.0, 0.5, -6.0], [6.0, 0.5, 6.0])
 
     # --- hand everything to the shader and draw ---
-    set_uniform("u_resolution", host.width, host.height)
     set_uniform("u_time", t)
     set_uniform("u_cam_pos", *eye)
     set_uniform("u_cam_right", *right)
@@ -156,7 +221,7 @@ def update(dt, t):
     set_uniform("u_tone", 1.0 if settings["tone"] else 0.0)
     set_uniform("u_box_pos", *box_pos)
 
-    gl.drawArrays(gl.TRIANGLES, 0, 3)
+    draw()
 
 
 host.run(update)

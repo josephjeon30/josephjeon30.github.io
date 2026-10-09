@@ -27,6 +27,7 @@ const float SCRIBBLE_INTERVAL = 0.5;  // seconds between redraws; 0 = a new draw
 const float SCRIBBLE_SIZE = 300.0;    // on-screen width of one copy of the pencil scan, in pixels
 const float SCAN_PAPER = 0.90;        // brightness of bare paper in the scan
 const float SCAN_GRAPHITE = 0.45;     // brightness of solid pencil in the scan
+const float SCRIBBLE_OPACITY = 0.7;   // how strongly the pencil covers the paper (1 = full)
 const float SCRIBBLE_SMEAR = 0.6;     // 0 = clean strokes, 1 = heavily smudged
 const vec3 PENCIL = vec3(0.30, 0.28, 0.27);  // graphite
 
@@ -147,7 +148,7 @@ vec3 paper_color(vec2 frag_coord, float shaded) {
         // (or every frame when that is 0).
         // Dividing by u_edge_scale keeps strokes the same on-screen size at higher resolution.
         float drawing = SCRIBBLE_INTERVAL > 0.0 ? floor(u_time / SCRIBBLE_INTERVAL) : u_frame;
-        return mix(PAPER, PENCIL, shaded * scribble(frag_coord / u_edge_scale, drawing));
+        return mix(PAPER, PENCIL, shaded * SCRIBBLE_OPACITY * scribble(frag_coord / u_edge_scale, drawing));
     }
     return mix(PAPER, TONE, shaded);
 }

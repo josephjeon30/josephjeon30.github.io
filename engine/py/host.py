@@ -18,6 +18,7 @@ rest of the code can stay plain Python + numpy:
     host.mouse.dx, .dy, .wheel   # movement / scroll since the last frame
     host.mouse.down              # True while a button is held
     host.on(id, "click", fn)     # react to a button or other control on the page
+    host.load_texture(url, 1)    # load an image for the shader to sample
 """
 
 import traceback
@@ -155,6 +156,39 @@ _listen(canvas, "pointerup", _on_pointer_up)
 _listen(canvas, "pointercancel", _on_pointer_up)
 _listen(canvas, "pointermove", _on_pointer_move)
 _listen(canvas, "wheel", _on_wheel, {"passive": False})
+
+
+def load_texture(url, unit, mirrored=True):
+    """Load an image into texture unit `unit` (a sampler2D set to that number reads it).
+
+    Returns immediately: the texture is plain white until the image has downloaded.
+    mirrored=True tiles the image flipped back and forth, which hides the seams of
+    an image that wasn't made to repeat.
+    """
+    texture = gl.createTexture()
+    gl.activeTexture(gl.TEXTURE0 + unit)
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+                  js.Uint8Array.new(to_js([255, 255, 255, 255])))
+    gl.activeTexture(gl.TEXTURE0)
+
+    image = js.Image.new()
+
+    def loaded(event):
+        wrap = gl.MIRRORED_REPEAT if mirrored else gl.REPEAT
+        gl.activeTexture(gl.TEXTURE0 + unit)
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
+        gl.generateMipmap(gl.TEXTURE_2D)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap)
+        gl.activeTexture(gl.TEXTURE0)
+
+    _listen(image, "load", loaded)
+    image.src = url
+    return texture
 
 
 def on(element_id, event, fn):

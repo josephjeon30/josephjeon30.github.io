@@ -24,10 +24,11 @@ const float REFINE_DEPTH = 0.08;   // both: relative jump in distance
 
 // Scribble shading (u_scribble = 1): the tone is drawn as pencil strokes
 const float SCRIBBLE_INTERVAL = 0.0;  // seconds between redraws; 0 = a new drawing every frame
-const float SCRIBBLE_SPACING = 7.0;   // pixels between strokes
-const float SCRIBBLE_WIDTH = 0.30;    // stroke thickness as a fraction of the spacing
-const float SCRIBBLE_SMEAR = 0.7;     // 0 = clean strokes, 1 = heavily smudged
-const vec3 PENCIL = vec3(0.47, 0.42, 0.36);
+const float SCRIBBLE_SIZE = 300.0;    // on-screen width of one copy of the pencil scan, in pixels
+const float SCAN_PAPER = 0.90;        // brightness of bare paper in the scan
+const float SCAN_GRAPHITE = 0.45;     // brightness of solid pencil in the scan
+const float SCRIBBLE_SMEAR = 0.6;     // 0 = clean strokes, 1 = heavily smudged
+const vec3 PENCIL = vec3(0.30, 0.28, 0.27);  // graphite
 
 // Returns (distance travelled, material id). Material is -1 when nothing was hit.
 vec2 march(vec3 origin, vec3 dir) {
@@ -63,46 +64,32 @@ float soft_shadow(vec3 origin, vec3 dir, float sharpness) {
 }
 
 // ---------- scribble texture ----------
+// u_pencil is a scan of real pencil scribble on paper (see textures/CREDITS.md).
 
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
-// Smooth random values: 0..1, changing gradually across p
-float noise(vec2 p) {
-    vec2 i = floor(p), f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+// Brightness in the scan -> amount of graphite (0 = bare paper, 1 = solid pencil)
+float graphite(float brightness) {
+    return 1.0 - smoothstep(SCAN_GRAPHITE, SCAN_PAPER, brightness);
 }
 
 // How much pencil is on the paper at screen pixel px (0 = none, 1 = full stroke).
-// `seed` picks the drawing: a different seed gives a completely different scribble.
+// `seed` picks the drawing: each seed looks at the scan from a different random
+// position and angle, so it reads as a freshly drawn scribble.
 float scribble(vec2 px, float seed) {
-    vec2 shift = vec2(seed * 37.0, seed * 91.0);
-    float angle = 0.75 + 0.6 * (hash(vec2(seed, 1.0)) - 0.5);  // stroke direction varies per drawing
-    vec2 q = rot(angle) * px;  // q.x runs along the strokes, q.y across them
+    float angle = hash(vec2(seed, 1.0)) * 6.2831853;
+    vec2 offset = vec2(hash(vec2(seed, 2.0)), hash(vec2(seed, 3.0))) * 2.0;  // the mirrored tiling repeats every 2
+    vec2 size = SCRIBBLE_SIZE * vec2(1.0, float(textureSize(u_pencil, 0).y) / float(textureSize(u_pencil, 0).x));
+    vec2 uv = rot(angle) * px / size + offset;
 
-    // Parallel lines, pushed sideways by noise so they wobble like a hand-drawn stroke
-    float wobble = (noise(q * vec2(0.012, 0.04) + shift) - 0.5) * 14.0
-                 + (noise(q * 0.08 + shift) - 0.5) * 3.0;
-    float across = abs(fract((q.y + wobble) / SCRIBBLE_SPACING) - 0.5) * 2.0;  // 0 on a stroke's center
+    float strokes = graphite(texture(u_pencil, uv).r);
 
-    // Smearing widens each stroke's soft edge until neighbouring strokes bleed together
-    float soft = 0.2 + 0.9 * SCRIBBLE_SMEAR;
-    float stroke = 1.0 - smoothstep(SCRIBBLE_WIDTH * (1.0 - 0.7 * SCRIBBLE_SMEAR), SCRIBBLE_WIDTH + soft, across);
-
-    // Uneven pressure: strokes fade in and out along their length
-    float pressure = smoothstep(0.2, 0.6, noise(q * vec2(0.02, 0.15) + shift * 1.7));
-    stroke *= mix(0.4, 1.0, pressure);
-
-    // Smudge: a patchy graphite haze dragged along the stroke direction (long in q.x,
-    // short in q.y), with fine streaks in it like pencil rubbed by a finger
-    float patches = smoothstep(0.15, 0.85, noise(q * vec2(0.006, 0.03) + shift * 0.5));
-    float streaks = 0.65 + 0.35 * noise(q * vec2(0.03, 0.7) + shift * 2.3);
-    float smudge = SCRIBBLE_SMEAR * 0.75 * patches * streaks;
-
-    return 1.0 - (1.0 - stroke) * (1.0 - smudge);  // layer the strokes over the smudge
+    // Smear: a blurred copy of the same scan (a small mip level), as if the graphite
+    // had been rubbed across the paper
+    float smudge = graphite(textureLod(u_pencil, uv, 3.5).r + 0.12);
+    return max(strokes, SCRIBBLE_SMEAR * smudge);
 }
 
 vec3 sky(vec3 dir) {

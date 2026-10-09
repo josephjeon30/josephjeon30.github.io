@@ -49,6 +49,7 @@ uniform float u_scribble;    // 1 = that tone is drawn as animated pencil stroke
 uniform float u_layer;       // which pass: 0 = single, 1 = low-res, 2 = adaptive full-res
 uniform float u_edge_scale;  // resolution multiplier of this pass (keeps line/stroke sizes constant)
 uniform sampler2D u_low;     // the low-res pass's output, read by the adaptive pass
+uniform sampler2D u_pencil;  // scan of real pencil scribble, for the scribble shading
 uniform float u_show_refined;  // 1 = tint the pixels that got their own ray in the adaptive pass
 """
 
@@ -84,6 +85,12 @@ fragment_source = "\n".join([FRAGMENT_HEADER, read("sdf.glsl"), read("scene.glsl
 program = make_program(VERTEX_SHADER, fragment_source)
 gl.useProgram(program)
 gl.bindVertexArray(gl.createVertexArray())  # WebGL2 needs one bound, even though it's empty
+
+# Texture units: 0 = the low-res pass's result (set up in draw()), 1 = the pencil scan
+LOW_UNIT, PENCIL_UNIT = 0, 1
+host.load_texture("textures/pencil-scribble.jpg", PENCIL_UNIT)
+gl.uniform1i(gl.getUniformLocation(program, "u_pencil"), PENCIL_UNIT)
+gl.uniform1i(gl.getUniformLocation(program, "u_low"), LOW_UNIT)
 
 _locations = {}
 
@@ -171,6 +178,7 @@ def draw():
 
     # Pass 1: normal resolution, into the texture
     w, h = host.width // SCALE, host.height // SCALE
+    gl.activeTexture(gl.TEXTURE0 + LOW_UNIT)
     low_target_resize(w, h)
     gl.bindTexture(gl.TEXTURE_2D, None)  # a texture can't be read while it's being drawn into
     gl.bindFramebuffer(gl.FRAMEBUFFER, low_target["framebuffer"])
@@ -178,9 +186,7 @@ def draw():
     gl.bindFramebuffer(gl.FRAMEBUFFER, None)
 
     # Pass 2: full canvas resolution, reusing the texture away from edges
-    gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, low_target["texture"])
-    gl.uniform1i(gl.getUniformLocation(program, "u_low"), 0)
     draw_pass(2, host.width, host.height, SCALE)
 
 

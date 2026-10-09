@@ -16,6 +16,12 @@ const vec3 INK = vec3(0.16, 0.13, 0.10);
 const vec3 TONE = vec3(0.78, 0.72, 0.62);  // the single shadow tone (u_tone = 1)
 const float TONE_THRESHOLD = 0.25;         // light level below which a point is shaded
 
+// Scribble shading (u_scribble = 1): the tone is drawn as pencil strokes
+const float SCRIBBLE_INTERVAL = 0.5;  // seconds between redraws
+const float SCRIBBLE_SPACING = 7.0;   // pixels between strokes
+const float SCRIBBLE_WIDTH = 0.30;    // stroke thickness as a fraction of the spacing
+const vec3 PENCIL = vec3(0.47, 0.42, 0.36);
+
 // Returns (distance travelled, material id). Material is -1 when nothing was hit.
 vec2 march(vec3 origin, vec3 dir) {
     float t = 0.0;
@@ -49,6 +55,38 @@ float soft_shadow(vec3 origin, vec3 dir, float sharpness) {
     return light;
 }
 
+// ---------- scribble texture ----------
+
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+// Smooth random values: 0..1, changing gradually across p
+float noise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// How much pencil is on the paper at screen pixel px (0 = none, 1 = full stroke).
+// `seed` picks the drawing: a different seed gives a completely different scribble.
+float scribble(vec2 px, float seed) {
+    vec2 shift = vec2(seed * 37.0, seed * 91.0);
+    float angle = 0.75 + 0.6 * (hash(vec2(seed, 1.0)) - 0.5);  // stroke direction varies per drawing
+    vec2 q = rot(angle) * px;  // q.x runs along the strokes, q.y across them
+
+    // Parallel lines, pushed sideways by noise so they wobble like a hand-drawn stroke
+    float wobble = (noise(q * vec2(0.012, 0.04) + shift) - 0.5) * 14.0
+                 + (noise(q * 0.08 + shift) - 0.5) * 3.0;
+    float across = abs(fract((q.y + wobble) / SCRIBBLE_SPACING) - 0.5) * 2.0;  // 0 on a stroke's center
+    float stroke = 1.0 - smoothstep(SCRIBBLE_WIDTH, SCRIBBLE_WIDTH + 0.2, across);
+
+    // Uneven pressure: strokes fade in and out along their length
+    float pressure = smoothstep(0.2, 0.6, noise(q * vec2(0.02, 0.15) + shift * 1.7));
+    return stroke * mix(0.4, 1.0, pressure);
+}
+
 vec3 sky(vec3 dir) {
     return mix(vec3(0.93, 0.88, 0.78), vec3(0.47, 0.62, 0.74), clamp(dir.y * 1.3 + 0.1, 0.0, 1.0));
 }
@@ -73,7 +111,7 @@ vec3 render(vec2 frag_coord) {
         // u_layer picks which part to draw, so the two parts can run at different
         // resolutions (see draw() in main.py):
         //   0 = shade + ink together
-        //   1 = shade only (paper and shadow tone), rendered into a texture
+        //   1 = shade only: how strongly each point is shaded, rendered into a texture
         //   2 = ink only, drawn over that texture
         bool draw_shade = u_layer < 1.5;
         bool draw_ink = u_layer < 0.5 || u_layer > 1.5;
@@ -93,8 +131,18 @@ vec3 render(vec2 frag_coord) {
         }
         float visible = hit.y >= 0.0 ? exp(-0.002 * hit.x * hit.x) : 0.0;  // fades with distance
 
-        if (draw_shade) color = mix(PAPER, TONE, shade * visible);
-        else color = texture(u_shade, frag_coord / u_resolution).rgb;  // the shade pass's result
+        // How strongly this point is shaded: computed here, or read from the shade pass
+        float shaded = draw_shade ? shade * visible : texture(u_shade, frag_coord / u_resolution).r;
+        if (u_layer > 0.5 && u_layer < 1.5) return vec3(shaded);  // the shade pass stores just that
+
+        if (u_scribble > 0.5) {
+            // Pencil strokes instead of a flat tone, redrawn every SCRIBBLE_INTERVAL seconds.
+            // Dividing by u_edge_scale keeps strokes the same on-screen size at higher resolution.
+            float drawing = floor(u_time / SCRIBBLE_INTERVAL);
+            color = mix(PAPER, PENCIL, shaded * scribble(frag_coord / u_edge_scale, drawing));
+        } else {
+            color = mix(PAPER, TONE, shaded);
+        }
 
         if (draw_ink) {
             // u_edge_scale keeps lines the same on-screen width when rendering at higher resolution

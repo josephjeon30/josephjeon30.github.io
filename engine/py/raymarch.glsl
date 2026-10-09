@@ -16,6 +16,12 @@ const vec3 INK = vec3(0.16, 0.13, 0.10);
 const vec3 TONE = vec3(0.78, 0.72, 0.62);  // the single shadow tone (u_tone = 1)
 const float TONE_THRESHOLD = 0.25;         // light level below which a point is shaded
 
+// Adaptive sampling (final pass): how big a change between neighbouring low-resolution
+// pixels makes the full-resolution pixels there get their own rays. Lower = refine more.
+const float REFINE_COLOR = 0.06;   // normal mode: color difference (0..1)
+const float REFINE_FACING = 0.12;  // edge mode: difference in how much the surface faces the camera
+const float REFINE_DEPTH = 0.08;   // both: relative jump in distance
+
 // Scribble shading (u_scribble = 1): the tone is drawn as pencil strokes
 const float SCRIBBLE_INTERVAL = 0.5;  // seconds between redraws
 const float SCRIBBLE_SPACING = 7.0;   // pixels between strokes
@@ -103,108 +109,174 @@ vec3 sky(vec3 dir) {
     return mix(vec3(0.93, 0.88, 0.78), vec3(0.47, 0.62, 0.74), clamp(dir.y * 1.3 + 0.1, 0.0, 1.0));
 }
 
-// The color of the scene along the ray through one point on the screen
-// (frag_coord is in pixels and may fall between pixel centers).
-vec3 render(vec2 frag_coord) {
+// ---------- shading one ray ----------
+
+vec3 ray_direction(vec2 frag_coord) {
     // Screen point -> ray. uv is centered, with y from -1 to 1.
     vec2 uv = (frag_coord * 2.0 - u_resolution) / u_resolution.y;
-    vec3 dir = normalize(u_cam_forward * u_cam_focal + u_cam_right * uv.x + u_cam_up * uv.y);
+    return normalize(u_cam_forward * u_cam_focal + u_cam_right * uv.x + u_cam_up * uv.y);
+}
 
-    vec3 color;
+// Distance along the ray squeezed into 0..1 so it fits in a texture (1 = nothing hit)
+float depth_code(vec2 hit) {
+    return hit.y >= 0.0 ? clamp(hit.x / MAX_DISTANCE, 0.0, 1.0) : 1.0;
+}
+
+// How visible a surface is through the distance fade (0 = nothing hit or too far)
+float visibility(vec2 hit) {
+    return hit.y >= 0.0 ? exp(-0.002 * hit.x * hit.x) : 0.0;
+}
+
+// Normal lighting: sun with soft shadows, sky ambient, fog. Returns a display color.
+vec3 lit_color(vec3 dir, vec2 hit) {
+    vec3 color = sky(dir);
+    if (hit.y >= 0.0) {
+        vec3 p = u_cam_pos + dir * hit.x;
+        vec3 n = normal_at(p);
+        vec3 base = material(hit.y, p);
+
+        float sun = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
+        float ambient = 0.25 + 0.15 * n.y;
+        vec3 lit = base * (sun * vec3(1.0, 0.95, 0.85) + ambient * vec3(0.75, 0.85, 1.0));
+
+        color = mix(sky(dir), lit, visibility(hit));
+    }
+    return pow(color, vec3(0.4545));  // gamma correction
+}
+
+// Edge mode, part 1: how strongly a point takes the shadow tone (0 = lit, 1 = shaded).
+// One-tone shading: light is either on or off. A point is shaded if it faces away
+// from the light or something blocks the light.
+float shaded_amount(vec3 p, vec3 n) {
+    if (u_tone < 0.5) return 0.0;
+    float light = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
+    return 1.0 - smoothstep(TONE_THRESHOLD - 0.02, TONE_THRESHOLD + 0.02, light);
+}
+
+// Edge mode, part 2: the paper with its tone, flat or as pencil strokes.
+vec3 paper_color(vec2 frag_coord, float shaded) {
+    if (u_scribble > 0.5) {
+        // Pencil strokes instead of a flat tone, redrawn every SCRIBBLE_INTERVAL seconds.
+        // Dividing by u_edge_scale keeps strokes the same on-screen size at higher resolution.
+        float drawing = floor(u_time / SCRIBBLE_INTERVAL);
+        return mix(PAPER, PENCIL, shaded * scribble(frag_coord / u_edge_scale, drawing));
+    }
+    return mix(PAPER, TONE, shaded);
+}
+
+// Edge mode, part 3: how much ink a point gets. A surface is inked only where it turns
+// away from the camera, i.e. where facing = |dot(view direction, normal)| is close to 0.
+// "Close" is measured in screen pixels: fwidth() says how much `facing` changes from one
+// pixel to the next, so facing / fwidth(facing) is roughly the number of pixels to the
+// nearest edge. That keeps lines the same width on every shape.
+float ink_amount(float facing, float visible) {
+    float pixels_from_edge = facing / max(fwidth(facing), 0.00001) / u_edge_scale;
+    float edge = 1.0 - smoothstep(EDGE_PIXELS, EDGE_PIXELS + max(EDGE_SOFTNESS, 1.0), pixels_from_edge);
+    return edge * visible;
+}
+
+// ---------- the passes ----------
+// u_layer says which pass this is (see draw() in main.py):
+//   0 = everything in one pass, one ray per pixel
+//   1 = low-resolution pass: renders into a texture what the final pass needs
+//   2 = final pass at double resolution: reuses the low-resolution result where the
+//       picture is smooth and only marches new rays near edges (adaptive sampling)
+
+// Pass 1 output. Normal mode: (color, depth). Edge mode: (shaded, ink, facing, depth).
+vec4 low_res_pass(vec2 frag_coord) {
+    vec3 dir = ray_direction(frag_coord);
     vec2 hit = march(u_cam_pos, dir);
+    if (u_edges < 0.5) return vec4(lit_color(dir, hit), depth_code(hit));
 
-    if (u_edges > 0.5) {
-        // Edge mode: no smooth lighting. A surface is inked only where it turns away from the
-        // camera, i.e. where dot(view direction, normal) is close to 0.
-        // "Close" is measured in screen pixels: fwidth() says how much `facing` changes
-        // from one pixel to the next, so facing / fwidth(facing) is roughly the number of
-        // pixels to the nearest edge. That keeps lines the same width on every shape.
-        //
-        // u_layer picks which part to draw, so the two parts can run at different
-        // resolutions (see draw() in main.py):
-        //   0 = shade + ink together
-        //   1 = shade only: how strongly each point is shaded, rendered into a texture
-        //   2 = ink only, drawn over that texture
-        bool draw_shade = u_layer < 1.5;
-        bool draw_ink = u_layer < 0.5 || u_layer > 1.5;
+    float facing = 1.0, shaded = 0.0;
+    if (hit.y >= 0.0) {
+        vec3 p = u_cam_pos + dir * hit.x;
+        vec3 n = normal_at(p);
+        facing = abs(dot(n, dir));
+        shaded = shaded_amount(p, n) * visibility(hit);
+    }
+    return vec4(shaded, ink_amount(facing, visibility(hit)), facing, depth_code(hit));
+}
 
-        float facing = 1.0;  // 1 = facing the camera, 0 = edge-on
-        float shade = 0.0;   // 1 = in the shadow tone, 0 = lit (left as paper)
-        if (hit.y >= 0.0) {
-            vec3 p = u_cam_pos + dir * hit.x;
-            vec3 n = normal_at(p);
-            facing = abs(dot(n, dir));
-            if (draw_shade && u_tone > 0.5) {
-                // One-tone shading: light is either on or off. A point takes the tone
-                // if it faces away from the light or something blocks the light.
-                float light = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
-                shade = 1.0 - smoothstep(TONE_THRESHOLD - 0.02, TONE_THRESHOLD + 0.02, light);
+// One ray per pixel, no reuse (pass 0).
+vec3 single_pass(vec2 frag_coord) {
+    vec3 dir = ray_direction(frag_coord);
+    vec2 hit = march(u_cam_pos, dir);
+    if (u_edges < 0.5) return lit_color(dir, hit);
+
+    float facing = 1.0, shaded = 0.0;
+    if (hit.y >= 0.0) {
+        vec3 p = u_cam_pos + dir * hit.x;
+        vec3 n = normal_at(p);
+        facing = abs(dot(n, dir));
+        shaded = shaded_amount(p, n) * visibility(hit);
+    }
+    return mix(paper_color(frag_coord, shaded), INK, ink_amount(facing, visibility(hit)));
+}
+
+// Does the low-resolution picture change around this texel? If so, the full-resolution
+// pixels inside it are worth a new ray each.
+bool needs_refining(ivec2 texel) {
+    ivec2 last = textureSize(u_low, 0) - 1;
+    vec4 here = texelFetch(u_low, clamp(texel, ivec2(0), last), 0);
+    float change = 0.0, ink = here.g;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            vec4 nearby = texelFetch(u_low, clamp(texel + ivec2(dx, dy), ivec2(0), last), 0);
+            vec4 d = abs(nearby - here);
+            float depth_jump = d.a / max(max(nearby.a, here.a), 0.02);  // relative, so distant floor doesn't count
+            if (u_edges > 0.5) {
+                change = max(change, max(d.b / REFINE_FACING, depth_jump / REFINE_DEPTH));  // facing or depth jumps
+                ink = max(ink, nearby.g);
+            } else {
+                change = max(change, max(max(d.r, max(d.g, d.b)) / REFINE_COLOR, depth_jump / REFINE_DEPTH));
             }
         }
-        float visible = hit.y >= 0.0 ? exp(-0.002 * hit.x * hit.x) : 0.0;  // fades with distance
+    }
+    return change > 1.0 || (u_edges > 0.5 && ink > 0.02);  // in edge mode, also anywhere ink was seen
+}
 
-        // How strongly this point is shaded: computed here, or read from the shade pass
-        float shaded = draw_shade ? shade * visible : texture(u_shade, frag_coord / u_resolution).r;
-        if (u_layer > 0.5 && u_layer < 1.5) return vec3(shaded);  // the shade pass stores just that
+// Final pass at double resolution (pass 2).
+vec3 adaptive_pass(vec2 frag_coord) {
+    // Each low-res texel covers a 2x2 block of these pixels. Deciding per texel means a
+    // whole block refines together, which fwidth() in ink_amount needs: it compares
+    // neighbouring pixels, so they must all have computed `facing`.
+    bool refine = needs_refining(ivec2(frag_coord) / 2);
+    vec4 low = texture(u_low, frag_coord / u_resolution);  // smoothly interpolated low-res result
 
-        if (u_scribble > 0.5) {
-            // Pencil strokes instead of a flat tone, redrawn every SCRIBBLE_INTERVAL seconds.
-            // Dividing by u_edge_scale keeps strokes the same on-screen size at higher resolution.
-            float drawing = floor(u_time / SCRIBBLE_INTERVAL);
-            color = mix(PAPER, PENCIL, shaded * scribble(frag_coord / u_edge_scale, drawing));
-        } else {
-            color = mix(PAPER, TONE, shaded);
-        }
-
-        if (draw_ink) {
-            // u_edge_scale keeps lines the same on-screen width when rendering at higher resolution
-            float pixels_from_edge = facing / max(fwidth(facing), 0.00001) / u_edge_scale;
-            float edge = 1.0 - smoothstep(EDGE_PIXELS, EDGE_PIXELS + max(EDGE_SOFTNESS, 1.0), pixels_from_edge);
-            color = mix(color, INK, edge * visible);
+    vec3 color;
+    if (u_edges < 0.5) {
+        color = low.rgb;
+        if (refine) {
+            vec3 dir = ray_direction(frag_coord);
+            color = lit_color(dir, march(u_cam_pos, dir));
         }
     } else {
-        color = sky(dir);
-        if (hit.y >= 0.0) {
-            vec3 p = u_cam_pos + dir * hit.x;
-            vec3 n = normal_at(p);
-            vec3 base = material(hit.y, p);
-
-            float sun = max(dot(n, LIGHT_DIR), 0.0) * soft_shadow(p + n * 0.01, LIGHT_DIR, 12.0);
-            float ambient = 0.25 + 0.15 * n.y;
-            vec3 lit = base * (sun * vec3(1.0, 0.95, 0.85) + ambient * vec3(0.75, 0.85, 1.0));
-
-            float fog = 1.0 - exp(-0.002 * hit.x * hit.x);
-            color = mix(lit, sky(dir), fog);
+        color = paper_color(frag_coord, low.r);  // the tone stays low-res; strokes are drawn at full res
+        if (refine) {
+            vec3 dir = ray_direction(frag_coord);
+            vec2 hit = march(u_cam_pos, dir);
+            float facing = 1.0;
+            if (hit.y >= 0.0) facing = abs(dot(normal_at(u_cam_pos + dir * hit.x), dir));
+            color = mix(color, INK, ink_amount(facing, visibility(hit)));
         }
-        color = pow(color, vec3(0.4545));  // gamma correction
     }
 
+    if (u_show_refined > 0.5 && refine) color = mix(color, vec3(1.0, 0.1, 0.6), 0.45);  // debug tint
     return color;
 }
 
 void main() {
-    vec3 color;
-    if (u_antialias > 0.5 && u_layer < 1.5) {
-        // Supersampling: average a 2x2 grid of rays inside the pixel. Smooths edges
-        // at 4x the cost. (The high-resolution ink pass is already supersampled.)
-        color = vec3(0.0);
-        for (int i = 0; i < 2; i++) {
-            for (int j = 0; j < 2; j++) {
-                vec2 offset = (vec2(float(i), float(j)) + 0.5) / 2.0 - 0.5;  // ±0.25 px
-                color += render(gl_FragCoord.xy + offset);
-            }
-        }
-        color /= 4.0;
-    } else {
-        color = render(gl_FragCoord.xy);
+    if (u_layer > 0.5 && u_layer < 1.5) {
+        out_color = low_res_pass(gl_FragCoord.xy);
+        return;
     }
 
-    // The 2D layer antialiases itself (see overlay), so it's drawn once on top
-    // (not into the intermediate shade texture).
-    if (u_layer < 0.5 || u_layer > 1.5) {
-        vec4 layer = overlay(gl_FragCoord.xy);
-        color = mix(color, layer.rgb, layer.a);
-    }
+    vec3 color = u_layer < 0.5 ? single_pass(gl_FragCoord.xy) : adaptive_pass(gl_FragCoord.xy);
+
+    // The 2D layer antialiases itself (see overlay), so it's drawn straight on top.
+    vec4 layer = overlay(gl_FragCoord.xy);
+    color = mix(color, layer.rgb, layer.a);
 
     out_color = vec4(color, 1.0);
 }

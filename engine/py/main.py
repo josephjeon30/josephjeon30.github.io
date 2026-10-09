@@ -43,12 +43,12 @@ uniform vec3 u_cam_up;
 uniform vec3 u_cam_forward;
 uniform float u_cam_focal;   // 1 / tan(fov / 2)
 uniform float u_edges;       // 1 = edge shading mode, 0 = normal lighting
-uniform float u_antialias;   // 1 = 4 rays per pixel, 0 = 1 ray per pixel
 uniform float u_tone;        // 1 = edge mode also fills shadows with one flat tone
 uniform float u_scribble;    // 1 = that tone is drawn as animated pencil strokes
-uniform float u_layer;       // edge mode: 0 = shade + ink, 1 = shade only, 2 = ink over u_shade
-uniform float u_edge_scale;  // resolution multiplier of the ink pass (keeps line width constant)
-uniform sampler2D u_shade;   // the shade pass's output, read by the ink pass
+uniform float u_layer;       // which pass: 0 = single, 1 = low-res, 2 = adaptive full-res
+uniform float u_edge_scale;  // resolution multiplier of this pass (keeps line/stroke sizes constant)
+uniform sampler2D u_low;     // the low-res pass's output, read by the adaptive pass
+uniform float u_show_refined;  // 1 = tint the pixels that got their own ray in the adaptive pass
 """
 
 
@@ -103,7 +103,7 @@ box_pos = np.array([1.6, 0.5, 0.6])
 
 
 # On/off settings, each controlled by a toggle button on the page.
-settings = {"edges": False, "tone": True, "scribble": True, "hires": True, "antialias": True}
+settings = {"edges": False, "tone": True, "scribble": True, "hires": True, "show_refined": False}
 
 
 def bind_toggle(button_id, key):
@@ -122,69 +122,65 @@ bind_toggle("edge-toggle", "edges")
 bind_toggle("tone-toggle", "tone")
 bind_toggle("scribble-toggle", "scribble")
 bind_toggle("hires-toggle", "hires")
-bind_toggle("antialias-toggle", "antialias")
+bind_toggle("refined-toggle", "show_refined")
 
 
-# ---------- high-resolution edges ----------
-# With "hires" on, edge mode draws in two passes so only the outlines pay for the
-# extra pixels: which areas are shaded (which needs shadow rays) is rendered at normal
-# resolution into a texture, then the tone/scribble and ink are rendered at EDGE_SCALE
-# times that resolution using it.
+# ---------- adaptive high resolution ----------
+# With "hires" on, each frame is drawn in two passes so that doubling the resolution
+# doesn't mean four times the rays:
+#   1. the whole scene at normal resolution, into a texture;
+#   2. the canvas at SCALE times that resolution, where the shader reuses pass 1 wherever
+#      the picture is smooth and marches new rays only near edges (see raymarch.glsl).
 
-EDGE_SCALE = 2  # ink resolution relative to the shade
+SCALE = 2  # the shader's 2x2 block logic assumes exactly 2
 
-shade_target = {"size": None, "texture": gl.createTexture(), "framebuffer": gl.createFramebuffer()}
+low_target = {"size": None, "texture": gl.createTexture(), "framebuffer": gl.createFramebuffer()}
 
 
-def shade_target_resize(w, h):
-    """(Re)allocate the shade texture when the canvas size changes."""
-    if shade_target["size"] == (w, h):
+def low_target_resize(w, h):
+    """(Re)allocate the low-res texture when the canvas size changes."""
+    if low_target["size"] == (w, h):
         return
-    shade_target["size"] = (w, h)
-    gl.bindTexture(gl.TEXTURE_2D, shade_target["texture"])
+    low_target["size"] = (w, h)
+    gl.bindTexture(gl.TEXTURE_2D, low_target["texture"])
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, None)
     for name, value in ((gl.TEXTURE_MIN_FILTER, gl.LINEAR), (gl.TEXTURE_MAG_FILTER, gl.LINEAR),
                         (gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE), (gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)):
         gl.texParameteri(gl.TEXTURE_2D, name, value)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, shade_target["framebuffer"])
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, shade_target["texture"], 0)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, low_target["framebuffer"])
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, low_target["texture"], 0)
     gl.bindFramebuffer(gl.FRAMEBUFFER, None)
 
 
-def draw_pass(layer, width, height, edge_scale=1.0):
+def draw_pass(layer, width, height, scale=1.0):
     gl.viewport(0, 0, width, height)
     set_uniform("u_resolution", width, height)
     set_uniform("u_layer", layer)
-    set_uniform("u_edge_scale", edge_scale)
+    set_uniform("u_edge_scale", scale)
     gl.drawArrays(gl.TRIANGLES, 0, 3)
 
 
 def draw():
-    hires = settings["edges"] and settings["hires"]
-    host.pixel_ratio = float(EDGE_SCALE) if hires else None  # takes effect on the next frame
+    hires = settings["hires"]
+    host.pixel_ratio = float(SCALE) if hires else None  # takes effect on the next frame
 
-    if not hires or host.width < 2 * EDGE_SCALE:
-        draw_pass(0, host.width, host.height)  # everything in one pass
+    if not hires or host.width < 2 * SCALE or host.height < 2 * SCALE:
+        draw_pass(0, host.width, host.height)  # one ray per pixel, one pass
         return
 
-    if settings["tone"]:
-        # Pass 1: shade at normal resolution, into the texture
-        w, h = host.width // EDGE_SCALE, host.height // EDGE_SCALE
-        shade_target_resize(w, h)
-        gl.bindTexture(gl.TEXTURE_2D, None)  # a texture can't be read while it's being drawn into
-        gl.bindFramebuffer(gl.FRAMEBUFFER, shade_target["framebuffer"])
-        draw_pass(1, w, h)
-        gl.bindFramebuffer(gl.FRAMEBUFFER, None)
-        # Pass 2: ink at full canvas resolution, over the texture
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, shade_target["texture"])
-        gl.uniform1i(gl.getUniformLocation(program, "u_shade"), 0)
-        draw_pass(2, host.width, host.height, EDGE_SCALE)
-    else:
-        # No tone to precompute: one pass of paper + ink at full resolution.
-        # Supersampling on top of the doubled resolution would be 16 rays per pixel, so skip it.
-        set_uniform("u_antialias", 0.0)
-        draw_pass(0, host.width, host.height, EDGE_SCALE)
+    # Pass 1: normal resolution, into the texture
+    w, h = host.width // SCALE, host.height // SCALE
+    low_target_resize(w, h)
+    gl.bindTexture(gl.TEXTURE_2D, None)  # a texture can't be read while it's being drawn into
+    gl.bindFramebuffer(gl.FRAMEBUFFER, low_target["framebuffer"])
+    draw_pass(1, w, h)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, None)
+
+    # Pass 2: full canvas resolution, reusing the texture away from edges
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, low_target["texture"])
+    gl.uniform1i(gl.getUniformLocation(program, "u_low"), 0)
+    draw_pass(2, host.width, host.height, SCALE)
 
 
 def normalize(v):
@@ -219,7 +215,7 @@ def update(dt, t):
     set_uniform("u_cam_forward", *forward)
     set_uniform("u_cam_focal", 1.0 / tan(camera["fov"] / 2))
     set_uniform("u_edges", 1.0 if settings["edges"] else 0.0)
-    set_uniform("u_antialias", 1.0 if settings["antialias"] else 0.0)
+    set_uniform("u_show_refined", 1.0 if settings["show_refined"] else 0.0)
     set_uniform("u_tone", 1.0 if settings["tone"] else 0.0)
     set_uniform("u_scribble", 1.0 if settings["scribble"] else 0.0)
     set_uniform("u_box_pos", *box_pos)

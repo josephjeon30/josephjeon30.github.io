@@ -23,7 +23,7 @@ const float REFINE_FACING = 0.12;  // edge mode: difference in how much the surf
 const float REFINE_DEPTH = 0.08;   // both: relative jump in distance
 
 // Scribble shading (u_scribble = 1): the tone is drawn as pencil strokes
-const float SCRIBBLE_INTERVAL = 0.0;  // seconds between redraws; 0 = a new drawing every frame
+const float SCRIBBLE_INTERVAL = 0.5;  // seconds between redraws; 0 = a new drawing every frame
 const float SCRIBBLE_SIZE = 300.0;    // on-screen width of one copy of the pencil scan, in pixels
 const float SCAN_PAPER = 0.90;        // brightness of bare paper in the scan
 const float SCAN_GRAPHITE = 0.45;     // brightness of solid pencil in the scan

@@ -20,6 +20,7 @@ const float TONE_THRESHOLD = 0.25;         // light level below which a point is
 const float SCRIBBLE_INTERVAL = 0.5;  // seconds between redraws
 const float SCRIBBLE_SPACING = 7.0;   // pixels between strokes
 const float SCRIBBLE_WIDTH = 0.30;    // stroke thickness as a fraction of the spacing
+const float SCRIBBLE_SMEAR = 0.7;     // 0 = clean strokes, 1 = heavily smudged
 const vec3 PENCIL = vec3(0.47, 0.42, 0.36);
 
 // Returns (distance travelled, material id). Material is -1 when nothing was hit.
@@ -80,11 +81,22 @@ float scribble(vec2 px, float seed) {
     float wobble = (noise(q * vec2(0.012, 0.04) + shift) - 0.5) * 14.0
                  + (noise(q * 0.08 + shift) - 0.5) * 3.0;
     float across = abs(fract((q.y + wobble) / SCRIBBLE_SPACING) - 0.5) * 2.0;  // 0 on a stroke's center
-    float stroke = 1.0 - smoothstep(SCRIBBLE_WIDTH, SCRIBBLE_WIDTH + 0.2, across);
+
+    // Smearing widens each stroke's soft edge until neighbouring strokes bleed together
+    float soft = 0.2 + 0.9 * SCRIBBLE_SMEAR;
+    float stroke = 1.0 - smoothstep(SCRIBBLE_WIDTH * (1.0 - 0.7 * SCRIBBLE_SMEAR), SCRIBBLE_WIDTH + soft, across);
 
     // Uneven pressure: strokes fade in and out along their length
     float pressure = smoothstep(0.2, 0.6, noise(q * vec2(0.02, 0.15) + shift * 1.7));
-    return stroke * mix(0.4, 1.0, pressure);
+    stroke *= mix(0.4, 1.0, pressure);
+
+    // Smudge: a patchy graphite haze dragged along the stroke direction (long in q.x,
+    // short in q.y), with fine streaks in it like pencil rubbed by a finger
+    float patches = smoothstep(0.15, 0.85, noise(q * vec2(0.006, 0.03) + shift * 0.5));
+    float streaks = 0.65 + 0.35 * noise(q * vec2(0.03, 0.7) + shift * 2.3);
+    float smudge = SCRIBBLE_SMEAR * 0.75 * patches * streaks;
+
+    return 1.0 - (1.0 - stroke) * (1.0 - smudge);  // layer the strokes over the smudge
 }
 
 vec3 sky(vec3 dir) {

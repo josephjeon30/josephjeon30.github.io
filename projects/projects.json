@@ -16,10 +16,5 @@
     "title": "Interactive demo",
     "summary": "Live Python code cells that run right in your browser.",
     "url": "notebooks/demo.html"
-  },
-  {
-    "slug": "project-two",
-    "title": "Project two",
-    "summary": "Short description of another project."
   }
 ]

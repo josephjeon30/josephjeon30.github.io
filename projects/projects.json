@@ -6,6 +6,12 @@
     "url": "engine/"
   },
   {
+    "slug": "nki2sfz",
+    "title": "NKI to SFZ",
+    "summary": "Convert Kontakt instruments and their NCW samples to SFZ, right in your browser.",
+    "url": "nki2sfz/"
+  },
+  {
     "slug": "interactive-demo",
     "title": "Interactive demo",
     "summary": "Live Python code cells that run right in your browser.",

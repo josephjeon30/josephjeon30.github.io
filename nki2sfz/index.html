@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NKI to SFZ</title>
+  <meta name="description" content="Convert Kontakt .nki instruments and their NCW samples to SFZ, right in your browser.">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .tool { display: flex; flex-direction: column; gap: 14px; }
+    .step { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .step h2 { font-size: 1.05rem; margin: 0 0 10px; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row > input[type=text] { flex: 1; min-width: 180px; }
+    .file-btn { position: relative; overflow: hidden; }
+    .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    #instruments { max-height: 260px; overflow-y: auto; border: 1px solid var(--border);
+                   border-radius: 6px; padding: 6px 10px; margin-top: 10px; background: var(--bg); }
+    .inst { display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 3px 0;
+            font-size: 0.92rem; overflow-wrap: anywhere; }
+    .inst.hide { display: none; }
+    .link-btn + .link-btn { margin-left: 10px; }
+    progress { width: 100%; height: 10px; accent-color: var(--accent); }
+    #log { max-height: 240px; overflow-y: auto; white-space: pre-wrap; margin: 0; font-size: 0.82rem; }
+    .notes li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="name" href="../">Joseph Jeon</a>
+      <ul>
+        <li><a href="../">Home</a></li>
+        <li><a href="../projects/">Projects</a></li>
+        <li><a href="../blog/">Blog</a></li>
+      </ul>
+    </nav>
+
+    <header class="hero">
+      <h1>NKI to SFZ</h1>
+      <p>Turn Kontakt instruments and their samples into SFZ you can load in sfizz, sforzando and other free samplers.
+         Everything runs in your browser; nothing is uploaded.</p>
+    </header>
+
+    <section class="tool">
+      <div class="step">
+        <h2>1. Choose the library folder</h2>
+        <p class="muted small" style="margin-top:0">Pick the folder that holds the library's <code>Instruments</code> and <code>Samples</code> folders.</p>
+        <div class="row">
+          <span class="run-btn file-btn">Choose folder…
+            <input type="file" id="folder" webkitdirectory directory multiple aria-label="Library folder"></span>
+          <span id="picked" class="muted small"></span>
+        </div>
+      </div>
+
+      <div class="step" id="step2" hidden>
+        <h2>2. Pick instruments</h2>
+        <div class="row">
+          <input type="text" id="filter" placeholder="Filter by name, e.g. Dry" aria-label="Filter instruments">
+          <span><button type="button" class="link-btn" id="all">Select shown</button><button type="button" class="link-btn" id="none">Clear shown</button></span>
+        </div>
+        <div id="instruments"></div>
+        <p class="muted small" id="count" style="margin:6px 0 0"></p>
+
+        <h2 style="margin-top:18px">3. Convert</h2>
+        <label>Output name
+          <input type="text" id="name" placeholder="My Library SFZ">
+        </label>
+        <p class="muted small" id="dest-hint" style="margin:6px 0 4px"></p>
+        <label class="inst" id="zip-choice" hidden><input type="checkbox" id="as-zip"> Download as a .zip instead</label>
+        <div style="height:10px"></div>
+        <div class="row">
+          <button type="button" class="run-btn" id="convert">Convert</button>
+        </div>
+        <progress id="progress" max="1" value="0" hidden style="margin-top:14px"></progress>
+      </div>
+
+      <p id="status" class="form-msg" role="status"></p>
+      <pre id="log" hidden></pre>
+    </section>
+
+    <section>
+      <h2>Good to know</h2>
+      <ul class="notes">
+        <li>Works with Kontakt 5–7 instruments whose samples are separate files (<code>.ncw</code>, <code>.wav</code>, …). Samples are decoded to WAV.</li>
+        <li>Encrypted Kontakt Player libraries, single-file “monolith” instruments, and pre-Kontakt 5 files aren't supported.</li>
+        <li>Mappings, velocity layers, tuning, volume, loops, crossfades, envelopes and release groups carry over. KSP script behaviour can't, since SFZ has no scripting.</li>
+        <li>Only convert libraries whose license lets you.</li>
+        <li>Prefer the command line? Download <a href="nki2sfz.py" download>nki2sfz.py</a> (Python 3 + numpy; can also write FLAC).</li>
+      </ul>
+    </section>
+
+    <footer>© 2026 Joseph Jeon · File format details from <a href="https://github.com/git-moss/ConvertWithMoss">ConvertWithMoss</a></footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

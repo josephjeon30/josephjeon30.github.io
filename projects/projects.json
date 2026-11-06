@@ -1,5 +1,11 @@
 [
   {
+    "slug": "central-limit-theorem",
+    "title": "Central limit theorem",
+    "summary": "Sample a population, average each sample, and watch the averages form a bell curve.",
+    "url": "clt/"
+  },
+  {
     "slug": "graphics-engine",
     "title": "Graphics engine",
     "summary": "A 2D/3D engine driven by Python: signed distance fields, raymarched on your GPU.",

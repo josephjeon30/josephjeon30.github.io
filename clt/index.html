@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Central Limit Theorem</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="../js/projects.js" defer></script>
+  <style>
+    :root {
+      --bars: var(--accent);     /* histogram bars */
+      --curve: #1668b0;          /* normal curve predicted by the CLT */
+      --grid: #ece5d6;
+    }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 12px 0 4px; }
+    .controls label { flex-direction: row; align-items: center; gap: 8px; font-size: 0.95rem; }
+    .controls select { padding: 6px 8px; }
+    .controls input[type=range] { width: 180px; accent-color: var(--accent); }
+    .n-value { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 2.5em; display: inline-block; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 6px; margin: 10px 0 18px; position: relative; }
+    .chart-card h2 { margin: 0; font-size: 1.05rem; }
+    .chart-sub { color: var(--muted); font-size: 0.88rem; margin: 2px 0 6px; }
+    .chart { width: 100%; display: block; }
+    .chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+    .chart .axis-line { stroke: var(--border); stroke-width: 1; }
+    .chart .grid { stroke: var(--grid); stroke-width: 1; }
+    .chart .bar { fill: var(--bars); }
+    .chart .bar.dim { opacity: 0.35; }
+    .chart .hit { fill: transparent; }
+    .chart .hit:hover + .bar, .chart .bar.hover { opacity: 0.75; }
+    .chart .curve { fill: none; stroke: var(--curve); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .chart .mu { stroke: var(--fg); stroke-width: 1; opacity: 0.55; }
+    .chart .xbar { stroke: var(--fg); stroke-width: 2; }
+    .chart .label { fill: var(--fg); font-size: 12px; }
+    .chart .pick { fill: var(--fg); stroke: var(--card); stroke-width: 2; }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); margin: 0 0 4px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .sw-bar { width: 12px; height: 12px; border-radius: 3px; background: var(--bars); }
+    .sw-line { width: 18px; height: 2px; background: var(--curve); border-radius: 1px; }
+    .sw-mark { width: 2px; height: 12px; background: var(--fg); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 4px; }
+    .stat { background: var(--code-bg); border-radius: 8px; padding: 8px 10px; }
+    .stat .k { color: var(--muted); font-size: 0.78rem; }
+    .stat .v { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+    .tooltip {
+      position: absolute; pointer-events: none; background: var(--fg); color: var(--bg);
+      font-size: 0.82rem; padding: 6px 9px; border-radius: 6px; white-space: nowrap;
+      transform: translate(-50%, calc(-100% - 10px)); display: none; z-index: 2;
+    }
+    .explain { color: var(--fg); }
+    .explain p { margin: 0.6em 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="name" href="../">calybri</a>
+      <ul>
+        <li><a href="../">Home</a></li>
+        <li><a href="../projects/">Projects</a></li>
+        <li><a href="../blog/">Blog</a></li>
+      </ul>
+    </nav>
+
+    <header class="post-header">
+      <h1>Central limit theorem</h1>
+      <div class="post-meta">Take many samples from any population, average each one, and the averages pile up into a bell curve.</div>
+    </header>
+
+    <!-- Population -->
+    <div class="controls">
+      <label>Population shape
+        <select id="shape">
+          <option value="uniform">Uniform (random 1–200)</option>
+          <option value="skewed">Skewed</option>
+          <option value="bimodal">Two humps</option>
+        </select>
+      </label>
+      <button class="py-run" id="new-pop" type="button">New population</button>
+    </div>
+
+    <section class="chart-card" id="pop-card">
+      <h2>Population: 1,000 numbers between 1 and 200</h2>
+      <div class="chart-sub" id="pop-sub"></div>
+      <div class="legend" id="pop-legend" hidden>
+        <span><i class="sw-mark"></i>Latest sample's mean (x̄), with its picked values as dots</span>
+      </div>
+      <svg class="chart" id="pop-chart" role="img" aria-label="Histogram of the population"></svg>
+    </section>
+
+    <!-- Sampling -->
+    <div class="controls">
+      <label>Sample size n
+        <input type="range" id="n" min="1" max="100" value="5" aria-describedby="n-value">
+        <span class="n-value" id="n-value">5</span>
+      </label>
+      <div class="btn-row">
+        <button class="py-run" id="draw1" type="button">Draw 1 sample</button>
+        <button class="py-run" id="draw100" type="button">+100 samples</button>
+        <button class="py-run" id="draw1000" type="button">+1,000 samples</button>
+        <button class="run-btn" id="run" type="button" aria-pressed="false">Run</button>
+        <button class="py-run" id="reset" type="button">Reset</button>
+      </div>
+    </div>
+
+    <section class="chart-card" id="mean-card">
+      <h2>Sampling distribution of the mean</h2>
+      <div class="chart-sub">Each sample picks <b id="n-label">5</b> numbers from the population (with replacement) and records their average.</div>
+      <div class="legend">
+        <span><i class="sw-bar"></i>Sample means</span>
+        <span><i class="sw-line"></i>Normal curve the CLT predicts: mean μ, spread σ/√n</span>
+        <span><i class="sw-mark"></i>Latest sample mean</span>
+      </div>
+      <svg class="chart" id="mean-chart" role="img" aria-label="Histogram of sample means"></svg>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="explain">
+      <h2>What you're seeing</h2>
+      <p>The top chart is the population. With the default setting it's flat: every number from 1 to 200 is about as likely as any other, so it looks nothing like a bell curve.</p>
+      <p>Each sample takes <i>n</i> numbers at random from that population and averages them. The bottom chart collects those averages. As samples accumulate, they form a bell shape centred on the population mean μ. The curve narrows as <i>n</i> grows, and its width follows σ/√<i>n</i>, where σ is the population's standard deviation.</p>
+      <p>Try <b>Two humps</b> or <b>Skewed</b>: the population changes completely, but with <i>n</i> around 30 the averages still form a bell. That's the central limit theorem. Set <i>n</i> = 1 and the "averages" are single values, so the bottom chart just copies the population.</p>
+    </section>
+
+    <!-- Blog posts tagged with this project are listed here automatically -->
+    <section data-project-posts="central-limit-theorem"></section>
+
+    <footer><a href="../projects/">← All projects</a></footer>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+  (function () {
+    var MIN = 1, MAX = 200, SIZE = 1000;
+    var POP_BIN = 5;    // population histogram bin width
+    var MEAN_BIN = 2;   // sample-mean histogram bin width
+
+    var state = { pop: [], mu: 0, sigma: 0, means: [], latest: null, running: false };
+    var $ = function (id) { return document.getElementById(id); };
+
+    // ---------- data ----------
+
+    function gaussian() {  // standard normal (Box–Muller)
+      var u = 1 - Math.random(), v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    function clampInt(x) { return Math.min(MAX, Math.max(MIN, Math.round(x))); }
+
+    function makePopulation(shape) {
+      var pop = [];
+      for (var i = 0; i < SIZE; i++) {
+        if (shape === "skewed") pop.push(clampInt(MIN + (MAX - MIN) * Math.pow(Math.random(), 2.6)));
+        else if (shape === "bimodal") pop.push(clampInt(Math.random() < 0.5 ? 50 + 16 * gaussian() : 155 + 16 * gaussian()));
+        else pop.push(MIN + Math.floor(Math.random() * (MAX - MIN + 1)));
+      }
+      return pop;
+    }
+
+    function meanOf(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s / a.length; }
+    function sdOf(a, m) { var s = 0; for (var i = 0; i < a.length; i++) s += (a[i] - m) * (a[i] - m); return Math.sqrt(s / a.length); }
+
+    function n() { return +$("n").value; }
+
+    function drawSample() {  // n values with replacement; returns {values, mean}
+      var k = n(), vals = new Array(k);
+      for (var i = 0; i < k; i++) vals[i] = state.pop[Math.floor(Math.random() * SIZE)];
+      return { values: vals, mean: meanOf(vals) };
+    }
+
+    function addSamples(count) {
+      var s;
+      for (var i = 0; i < count; i++) { s = drawSample(); state.means.push(s.mean); }
+      state.latest = s;
+    }
+
+    function histogram(values, width) {
+      var bins = [];
+      for (var x = MIN - 1; x < MAX; x += width) bins.push({ lo: x, hi: x + width, count: 0 });
+      for (var i = 0; i < values.length; i++) {
+        // bin edges sit half-way between integers, so bin (lo, hi] covers values lo+0.5 to hi+0.5
+        var b = Math.min(bins.length - 1, Math.max(0, Math.floor((values[i] - MIN + 0.5) / width)));
+        bins[b].count++;
+      }
+      return bins;
+    }
+
+    // ---------- drawing (SVG) ----------
+
+    var SVGNS = "http://www.w3.org/2000/svg";
+    function el(tag, attrs, parent) {
+      var e = document.createElementNS(SVGNS, tag);
+      for (var k in attrs) e.setAttribute(k, attrs[k]);
+      if (parent) parent.appendChild(e);
+      return e;
+    }
+    function niceStep(max) {  // a round tick step giving ~4 gridlines
+      var raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+      return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+    }
+    function fmt(x) { return x.toLocaleString(undefined, { maximumFractionDigits: 0 }); }
+
+    // Shared histogram renderer. opts: {svg, bins, unit, tip, curve(x)->count, marks:[{x,label,cls}], picks:[values]}
+    function drawHistogram(opts) {
+      var svg = opts.svg;
+      var W = Math.max(320, svg.parentNode.clientWidth - 28), H = opts.height || 220;
+      var m = { l: 40, r: 10, t: 18, b: opts.picks ? 40 : 26 };
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+      svg.setAttribute("height", H);
+      svg.innerHTML = "";
+
+      var maxCount = 0;
+      opts.bins.forEach(function (b) { maxCount = Math.max(maxCount, b.count); });
+      if (opts.curve) for (var cx = MIN; cx <= MAX; cx += 0.5) maxCount = Math.max(maxCount, opts.curve(cx));
+      var step = niceStep(Math.max(maxCount, 4)), yMax = Math.ceil(Math.max(maxCount, 1) / step) * step;
+
+      var plotW = W - m.l - m.r, plotH = H - m.t - m.b, baseY = m.t + plotH;
+      var X = function (v) { return m.l + (v - (MIN - 0.5)) / (MAX - MIN + 1) * plotW; };  // axis spans 0.5 to 200.5
+      var Y = function (c) { return baseY - c / yMax * plotH; };
+
+      // grid + y ticks
+      for (var y = 0; y <= yMax + 1e-9; y += step) {
+        el("line", { x1: m.l, x2: W - m.r, y1: Y(y), y2: Y(y), "class": y === 0 ? "axis-line" : "grid" }, svg);
+        el("text", { x: m.l - 6, y: Y(y) + 4, "text-anchor": "end" }, svg).textContent = fmt(y);
+      }
+      // x ticks
+      [1, 50, 100, 150, 200].forEach(function (v) {
+        el("text", { x: X(v), y: baseY + 15, "text-anchor": "middle" }, svg).textContent = v;
+      });
+
+      // bars: 2px surface gap between neighbours, 4px rounded top, square at the baseline
+      var slot = plotW / opts.bins.length, barW = Math.max(1, Math.min(24, slot - 2));
+      opts.bins.forEach(function (b) {
+        var left = X(b.lo + 0.5), x = left + (slot - barW) / 2, top = Y(b.count), h = baseY - top;
+        var hit = el("rect", { x: left, y: m.t, width: slot, height: plotH, "class": "hit" }, svg);
+        if (b.count > 0) {
+          var r = Math.min(4, barW / 2, h);
+          var d = "M" + x + "," + baseY + "V" + (top + r) + "Q" + x + "," + top + " " + (x + r) + "," + top +
+                  "H" + (x + barW - r) + "Q" + (x + barW) + "," + top + " " + (x + barW) + "," + (top + r) + "V" + baseY + "Z";
+          var bar = el("path", { d: d, "class": "bar" }, svg);
+          hit.addEventListener("mouseenter", function () { bar.classList.add("hover"); });
+          hit.addEventListener("mouseleave", function () { bar.classList.remove("hover"); });
+        }
+        hit.addEventListener("mousemove", function (e) { showTip(e, opts.tip(b)); });
+        hit.addEventListener("mouseleave", hideTip);
+      });
+
+      // predicted normal curve
+      if (opts.curve) {
+        var pts = [];
+        for (var v = MIN - 0.5; v <= MAX + 0.5; v += 0.5) pts.push(X(v).toFixed(1) + "," + Y(opts.curve(v)).toFixed(1));
+        el("polyline", { points: pts.join(" "), "class": "curve" }, svg);
+      }
+
+      // vertical markers (μ, x̄)
+      var marks = opts.marks || [];
+      var close = marks.length === 2 && Math.abs(X(marks[0].x) - X(marks[1].x)) < 70;
+      marks.forEach(function (mk, i) {
+        var x = X(mk.x);
+        el("line", { x1: x, x2: x, y1: m.t - 4, y2: baseY, "class": mk.cls }, svg);
+        var anchor = x > W - 90 ? "end" : x < m.l + 60 ? "start" : "middle";
+        if (close) {  // two labels near each other: put them on opposite sides of their lines
+          var otherX = X(marks[1 - i].x);
+          anchor = x < otherX || (x === otherX && i === 0) ? "end" : "start";
+        }
+        el("text", { x: x + (anchor === "end" ? -4 : anchor === "start" ? 4 : 0), y: m.t - 6, "text-anchor": anchor, "class": "label" }, svg).textContent = mk.label;
+      });
+
+      // the latest sample's individual values, as dots under the axis
+      if (opts.picks) {
+        opts.picks.forEach(function (v, i) {
+          el("circle", { cx: X(v), cy: baseY + 27 + (i % 3) * 3 - 3, r: 4, "class": "pick" }, svg);
+        });
+      }
+    }
+
+    // ---------- tooltip ----------
+    var tip = $("tooltip");
+    function showTip(e, text) {
+      tip.textContent = text;
+      tip.style.display = "block";
+      tip.style.left = e.pageX + "px";
+      tip.style.top = e.pageY + "px";
+    }
+    function hideTip() { tip.style.display = "none"; }
+
+    // ---------- render ----------
+
+    function normalCurve(count) {  // expected count per MEAN_BIN for N(mu, sigma/sqrt(n))
+      var se = state.sigma / Math.sqrt(n());
+      return function (x) {
+        var z = (x - state.mu) / se;
+        return count * MEAN_BIN * Math.exp(-0.5 * z * z) / (se * Math.sqrt(2 * Math.PI));
+      };
+    }
+
+    function render() {
+      var latest = state.latest;
+      $("pop-sub").textContent = "Mean μ = " + state.mu.toFixed(1) + " · standard deviation σ = " + state.sigma.toFixed(1) +
+        ". Bars group values in fives.";
+      $("pop-legend").hidden = !latest;
+
+      drawHistogram({
+        svg: $("pop-chart"), height: 200,
+        bins: histogram(state.pop, POP_BIN),
+        tip: function (b) { return "Values " + (b.lo + 1) + "–" + b.hi + ": " + b.count + " of 1,000"; },
+        marks: [{ x: state.mu, label: "μ", cls: "mu" }].concat(latest ? [{ x: latest.mean, label: "x̄ " + latest.mean.toFixed(1), cls: "xbar" }] : []),
+        picks: latest && latest.values.length <= 100 ? latest.values : null
+      });
+
+      var count = state.means.length;
+      drawHistogram({
+        svg: $("mean-chart"), height: 240,
+        bins: histogram(state.means, MEAN_BIN),
+        curve: count ? normalCurve(count) : null,
+        tip: function (b) {
+          return "Means " + (b.lo + 0.5) + "–" + (b.hi + 0.5) + ": " + b.count.toLocaleString() + " sample" + (b.count === 1 ? "" : "s") +
+            (count ? " (" + (100 * b.count / count).toFixed(1) + "%)" : "");
+        },
+        marks: [{ x: state.mu, label: "μ", cls: "mu" }].concat(latest ? [{ x: latest.mean, label: "x̄ " + latest.mean.toFixed(1), cls: "xbar" }] : [])
+      });
+
+      var m = count ? meanOf(state.means) : NaN, sd = count > 1 ? sdOf(state.means, m) : NaN;
+      var stats = [
+        ["Samples drawn", count.toLocaleString()],
+        ["Mean of sample means", count ? m.toFixed(2) : "–"],
+        ["Population mean μ", state.mu.toFixed(2)],
+        ["SD of sample means", count > 1 ? sd.toFixed(2) : "–"],
+        ["CLT prediction σ/√n", (state.sigma / Math.sqrt(n())).toFixed(2)]
+      ];
+      $("stats").innerHTML = "";
+      stats.forEach(function (s) {
+        var d = document.createElement("div");
+        d.className = "stat";
+        d.innerHTML = '<div class="k"></div><div class="v"></div>';
+        d.children[0].textContent = s[0];
+        d.children[1].textContent = s[1];
+        $("stats").appendChild(d);
+      });
+    }
+
+    // ---------- controls ----------
+
+    function newPopulation() {
+      state.pop = makePopulation($("shape").value);
+      state.mu = meanOf(state.pop);
+      state.sigma = sdOf(state.pop, state.mu);
+      resetSamples();
+    }
+    function resetSamples() {
+      state.means = [];
+      state.latest = null;
+      render();
+    }
+    function setRunning(on) {
+      state.running = on;
+      $("run").textContent = on ? "Pause" : "Run";
+      $("run").setAttribute("aria-pressed", on ? "true" : "false");
+      if (on) requestAnimationFrame(tick);
+    }
+    function tick() {
+      if (!state.running) return;
+      addSamples(Math.max(1, Math.round(state.means.length / 60)));  // speeds up as the histogram fills
+      render();
+      if (state.means.length >= 20000) setRunning(false);
+      else requestAnimationFrame(tick);
+    }
+
+    $("n").addEventListener("input", function () {
+      $("n-value").textContent = n();
+      $("n-label").textContent = n();
+      resetSamples();
+    });
+    $("shape").addEventListener("change", newPopulation);
+    $("new-pop").addEventListener("click", newPopulation);
+    $("draw1").addEventListener("click", function () { addSamples(1); render(); });
+    $("draw100").addEventListener("click", function () { addSamples(100); render(); });
+    $("draw1000").addEventListener("click", function () { addSamples(1000); render(); });
+    $("run").addEventListener("click", function () { setRunning(!state.running); });
+    $("reset").addEventListener("click", function () { setRunning(false); resetSamples(); });
+
+    var resizeTimer;
+    window.addEventListener("resize", function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 100); });
+
+    newPopulation();
+  })();
+  </script>
+</body>
+</html>

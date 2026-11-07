@@ -314,7 +314,7 @@
   const C = (m) => `${sgn(cm(m))} cm`;
 
   function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; }
-  function text(x, y, s, attrs = {}) { const t = el("text", Object.assign({ x, y, "font-family": "JetBrains Mono, ui-monospace, monospace", "font-size": 15, fill: "var(--ink)" }, attrs)); t.textContent = s; return t; }
+  function text(x, y, s, attrs = {}) { const t = el("text", Object.assign({ x, y, "font-family": "JetBrains Mono, ui-monospace, monospace", "font-size": 20, fill: "var(--ink)" }, attrs)); t.textContent = s; return t; }
 
   const W = 1200, H = 640, mx = 30, my = 40;
   let lastView = null, drag = null, focusKind = null, nodalSlope = null;
@@ -365,21 +365,21 @@
       el("rect", { x: X(0), y: Y(a), width: Math.max(1, X(dcm) - X(0)), height: Y(-a) - Y(a), fill: "var(--glass)" }, g);
       [0, dcm].forEach((x) => el("line", { x1: X(x), y1: Y(a), x2: X(x), y2: Y(-a), stroke: "var(--optic)", "stroke-width": 2.4 }, g));
     }
-    text(X(0) - 6, Y(0) + 20, "A₁", { "text-anchor": "end", "font-size": 13, fill: "var(--muted)" });
-    text(X(dcm) + 6, Y(0) + 20, "A₂", { "font-size": 13, fill: "var(--muted)" });
+    text(X(0) - 6, Y(0) + 20, "A₁", { "text-anchor": "end", "font-size": 17, fill: "var(--muted)" });
+    text(X(dcm) + 6, Y(0) + 20, "A₂", { "font-size": 17, fill: "var(--muted)" });
 
     // principal planes
     const top = Y(ymax * 0.92), bot = Y(-ymax * 0.92);
     [[xH1, "H₁"], [xH2, "H₂"]].forEach(([x, lab], i) => {
       el("line", { x1: X(x), y1: top, x2: X(x), y2: bot, stroke: "var(--optic)", "stroke-width": 1.2, "stroke-dasharray": "6 4" }, g);
       const close = Math.abs(X(xH1) - X(xH2)) < 34;
-      text(X(x), top - 6 + (close && i === 1 ? 18 : 0), lab, { "text-anchor": "middle", "font-size": 14, fill: "var(--optic)", "font-weight": 500 });
+      text(X(x), top - 6 + (close && i === 1 ? 18 : 0), lab, { "text-anchor": "middle", "font-size": 18, fill: "var(--optic)", "font-weight": 500 });
     });
     // focal and nodal points
     const dot = (x, lab, color, below) => {
       if (Math.abs(x) > LIM) return;
-      el("circle", { cx: X(x), cy: Y(0), r: 4.2, fill: color }, g);
-      text(X(x), Y(0) + (below ? 22 : -10), lab, { "text-anchor": "middle", "font-size": 13, fill: color });
+      el("circle", { cx: X(x), cy: Y(0), r: 5.5, fill: color }, g);
+      text(X(x), Y(0) + (below ? 22 : -10), lab, { "text-anchor": "middle", "font-size": 17, fill: color });
     };
     dot(xF1, "f₁", "var(--ink)", true); dot(xF2, "f₂", "var(--ink)", true);
     dot(xN1, Math.abs(r.HN) > 1e-6 ? "N₁" : "N₁ (at H₁)", "var(--ray3)", false); dot(xN2, Math.abs(r.HN) > 1e-6 ? "N₂" : "N₂ (at H₂)", "var(--ray3)", false);
@@ -391,7 +391,7 @@
       el("polygon", { points: `${X(x)},${Y(y)} ${X(x) - 7},${Y(y) + dir * 13} ${X(x) + 7},${Y(y) + dir * 13}`, fill: color }, g);
     };
     arrow(xo, r.h, "var(--ink)", false);
-    text(X(xo), Y(r.h) + (r.h >= 0 ? -10 : 24), "object", { "text-anchor": "middle", "font-size": 12, fill: "var(--muted)" });
+    text(X(xo), Y(r.h) + (r.h >= 0 ? -10 : 24), "object", { "text-anchor": "middle", "font-size": 16, fill: "var(--muted)" });
 
     // rays (equivalent-system model: refraction happens at H1 → H2)
     const rays = [];
@@ -402,20 +402,20 @@
     const sInf = (0 - r.h) / (xF2 - xH2);
     rays.forEach(({ y, color }) => {
       if (!Number.isFinite(y) || Math.abs(y) > ymax * 4) return;
-      el("line", { x1: X(xo), y1: Y(r.h), x2: X(xH1), y2: Y(y), stroke: color, "stroke-width": 1.8 }, g);
+      el("line", { x1: X(xo), y1: Y(r.h), x2: X(xH1), y2: Y(y), stroke: color, "stroke-width": 2.4 }, g);
       el("line", { x1: X(xH1), y1: Y(y), x2: X(xH2), y2: Y(y), stroke: color, "stroke-width": 1.6, "stroke-dasharray": "5 3" }, g);
       let slope;
       if (!imgFinite) slope = sInf;
       else if (Math.abs(xi - xH2) < 1e-9) slope = 0;
       else slope = (yi - y) / (xi - xH2);
       const xEnd = xmax + 50;
-      el("line", { x1: X(xH2), y1: Y(y), x2: X(xEnd), y2: Y(y + slope * (xEnd - xH2)), stroke: color, "stroke-width": 1.8 }, g);
+      el("line", { x1: X(xH2), y1: Y(y), x2: X(xEnd), y2: Y(y + slope * (xEnd - xH2)), stroke: color, "stroke-width": 2.4 }, g);
       if (imgFinite && !real) el("line", { x1: X(xH2), y1: Y(y), x2: X(xi), y2: Y(yi), stroke: color, "stroke-width": 1.2, "stroke-dasharray": "5 4", opacity: 0.85 }, g);
     });
 
     if (showImg) {
       arrow(xi, yi, "var(--optic)", !real);
-      text(X(xi), Y(yi) + (yi >= 0 ? -10 : 24), real ? "real image" : "virtual image", { "text-anchor": "middle", "font-size": 12, fill: "var(--optic)" });
+      text(X(xi), Y(yi) + (yi >= 0 ? -10 : 24), real ? "real image" : "virtual image", { "text-anchor": "middle", "font-size": 16, fill: "var(--optic)" });
     }
     // purple ray handle: on its path from the object tip to H1
     const yP = lastView.purpleY ?? 0, tK = 0.55;
@@ -425,9 +425,9 @@
     const sagAt = (rad, y) => Number.isFinite(rad) ? rad - Math.sign(rad) * Math.sqrt(Math.max(0, rad * rad - y * y)) : 0;
     const handle = (kind, x, y, label, shape) => {
       const hg = el("g", { class: "handle", "data-kind": kind, tabindex: 0, role: "button", "aria-label": label, transform: `translate(${X(x).toFixed(1)},${Y(y).toFixed(1)})` }, svg);
-      el("circle", { r: 14, fill: "transparent" }, hg);
-      if (shape === "diamond") el("rect", { x: -6, y: -6, width: 12, height: 12, transform: "rotate(45)", fill: "var(--panel)", stroke: "var(--optic)", "stroke-width": 2 }, hg);
-      else el("circle", { r: 6, fill: "var(--panel)", stroke: shape === "img" ? "var(--optic)" : "var(--ink)", "stroke-width": 2 }, hg);
+      el("circle", { r: 18, fill: "transparent" }, hg);
+      if (shape === "diamond") el("rect", { x: -8, y: -8, width: 16, height: 16, transform: "rotate(45)", fill: "var(--panel)", stroke: "var(--optic)", "stroke-width": 2 }, hg);
+      else el("circle", { r: 8, fill: "var(--panel)", stroke: shape === "img" ? "var(--optic)" : "var(--ink)", "stroke-width": 2 }, hg);
       return hg;
     };
     handle("object", xo, r.h, "Object: drag to move it, arrow keys to nudge");

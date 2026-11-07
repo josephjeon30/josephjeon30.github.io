@@ -14,7 +14,6 @@
       <ul>
         <li><a href="../">Home</a></li>
         <li><a href="./">Projects</a></li>
-        <li><a href="../blog/">Blog</a></li>
       </ul>
     </nav>
 
@@ -23,7 +22,7 @@
       <p id="summary"></p>
     </header>
 
-    <!-- /projects/ lists every project; /projects/?p=slug shows one, with its posts -->
+    <!-- /projects/ lists every project; /projects/?p=slug shows one -->
     <section id="all" hidden><div data-project-cards></div></section>
     <section id="posts" hidden></section>
 
@@ -46,10 +45,7 @@
         document.title = project.title;
         titleEl.textContent = project.title;
         document.getElementById("summary").textContent = project.summary || "";
-        var section = document.getElementById("posts");
-        section.setAttribute("data-project-posts", slug);
-        section.hidden = false;
-        Projects.fillProjectPosts(section, data);
+        // The blog is archived, so the project's post list (section#posts) stays hidden.
       }).catch(function () { titleEl.textContent = "Couldn't load project"; });
     })();
   </script>

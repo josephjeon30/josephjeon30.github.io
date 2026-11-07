@@ -1,5 +1,11 @@
 [
   {
+    "slug": "thick-lens",
+    "title": "Thick lens bench",
+    "summary": "Trace rays through a two-surface lens and find its equivalent power, vertex powers, principal planes and nodal points.",
+    "url": "thick-lens/"
+  },
+  {
     "slug": "modular-arithmetic",
     "title": "Modular arithmetic",
     "summary": "Clock arithmetic, Euclid's algorithm and modular inverses: interactive demos on the way to RSA.",

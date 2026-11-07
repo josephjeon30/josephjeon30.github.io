@@ -93,6 +93,7 @@
         <span><i style="background:var(--ray1)"></i>enters parallel, leaves through f<sub>2</sub></span>
         <span><i style="background:var(--ray2)"></i>enters through f<sub>1</sub>, leaves parallel</span>
         <span><i style="background:var(--ray3)"></i>aimed at N<sub>1</sub>, leaves from N<sub>2</sub></span>
+        <span><i style="background:repeating-linear-gradient(90deg,var(--muted) 0 5px,transparent 5px 8px)"></i>dashes: the jump from H<sub>1</sub> to H<sub>2</sub> at the same height</span>
       </div>
       <p class="hint" style="margin:6px 6px 0">Drag the object, the image, the back surface (A₂) or the round knob at the top edge of either surface. Handles also move with the arrow keys.</p>
       <p class="status" id="status"></p>
@@ -378,7 +379,7 @@
       text(X(x), Y(0) + (below ? 22 : -10), lab, { "text-anchor": "middle", "font-size": 13, fill: color });
     };
     dot(xF1, "f₁", "var(--ink)", true); dot(xF2, "f₂", "var(--ink)", true);
-    if (Math.abs(r.HN) > 1e-6) { dot(xN1, "N₁", "var(--ray3)", false); dot(xN2, "N₂", "var(--ray3)", false); }
+    dot(xN1, Math.abs(r.HN) > 1e-6 ? "N₁" : "N₁ (at H₁)", "var(--ray3)", false); dot(xN2, Math.abs(r.HN) > 1e-6 ? "N₂" : "N₂ (at H₂)", "var(--ray3)", false);
 
     // object arrow
     const arrow = (x, y, color, dashed) => {
@@ -399,7 +400,7 @@
     rays.forEach(({ y, color }) => {
       if (!Number.isFinite(y) || Math.abs(y) > ymax * 4) return;
       el("line", { x1: X(xo), y1: Y(r.h), x2: X(xH1), y2: Y(y), stroke: color, "stroke-width": 1.8 }, g);
-      el("line", { x1: X(xH1), y1: Y(y), x2: X(xH2), y2: Y(y), stroke: color, "stroke-width": 1, "stroke-dasharray": "2 3", opacity: 0.8 }, g);
+      el("line", { x1: X(xH1), y1: Y(y), x2: X(xH2), y2: Y(y), stroke: color, "stroke-width": 1.6, "stroke-dasharray": "5 3" }, g);
       let slope;
       if (!imgFinite) slope = sInf;
       else if (Math.abs(xi - xH2) < 1e-9) slope = 0;

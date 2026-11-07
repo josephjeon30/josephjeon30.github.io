@@ -63,6 +63,9 @@
     ul.plain b { color: var(--fg); font-weight: 600; }
     sub, sup { font-size: 0.72em; }
     @media (max-width: 420px) { .row3 { grid-template-columns: 1fr 1fr; } }
+    #bench .handle { cursor: grab; touch-action: none; outline: none; }
+    #bench .handle:focus-visible circle:last-child, #bench .handle:focus-visible rect { stroke-width: 3.5; }
+    #bench.dragging, #bench.dragging .handle { cursor: grabbing; }
   </style>
 </head>
 <body>
@@ -91,6 +94,7 @@
         <span><i style="background:var(--ray2)"></i>enters through f<sub>1</sub>, leaves parallel</span>
         <span><i style="background:var(--ray3)"></i>aimed at N<sub>1</sub>, leaves from N<sub>2</sub></span>
       </div>
+      <p class="hint" style="margin:6px 6px 0">Drag the object, the image, the back surface (A₂) or the round knob at the top edge of either surface. Handles also move with the arrow keys.</p>
       <p class="status" id="status"></p>
     </div>
 
@@ -308,9 +312,10 @@
   function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; }
   function text(x, y, s, attrs = {}) { const t = el("text", Object.assign({ x, y, "font-family": "JetBrains Mono, ui-monospace, monospace", "font-size": 15, fill: "var(--ink)" }, attrs)); t.textContent = s; return t; }
 
-  function draw(r) {
+  const W = 1000, H = 460, mx = 30, my = 34;
+  let lastView = null, drag = null, focusKind = null;
+  function draw(r, frozen) {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
-    const W = 1000, H = 460, mx = 30, my = 34;
     const defs = el("defs", {});
     const cp = el("clipPath", { id: "clip" }, defs); el("rect", { x: 0, y: 0, width: W, height: H }, cp);
     const g = el("g", { "clip-path": "url(#clip)" });
@@ -327,15 +332,18 @@
     const xs = [xo, 0, dcm, xH1, xH2, xF1, xF2].filter((x) => Math.abs(x) < LIM);
     const showImg = imgFinite && Math.abs(xi) < LIM && Math.abs(yi) < 60;
     if (showImg) xs.push(xi);
-    let xmin = Math.min(...xs), xmax = Math.max(...xs);
-    let span = Math.max(xmax - xmin, 10); const pad = span * 0.12;
-    xmin -= pad; xmax += pad;
-    // aperture for drawing the lens
-    let a;
-    const rmins = [r.r1, r.r2].filter(Number.isFinite).map(Math.abs);
-    const want = Math.max(1.5, Math.abs(r.h) * 1.3);
-    a = rmins.length ? Math.min(0.95 * Math.min(...rmins), want) : want;
-    let ymax = Math.max(Math.abs(r.h), a, showImg ? Math.abs(yi) : 0) * 1.3;
+    let xmin, xmax, a, ymax;
+    if (frozen) ({ xmin, xmax, a, ymax } = frozen);
+    else {
+      xmin = Math.min(...xs); xmax = Math.max(...xs);
+      const span = Math.max(xmax - xmin, 10), pad = span * 0.12;
+      xmin -= pad; xmax += pad;
+      const rmins = [r.r1, r.r2].filter(Number.isFinite).map(Math.abs);
+      const want = Math.max(1.5, Math.abs(r.h) * 1.3);
+      a = rmins.length ? Math.min(0.95 * Math.min(...rmins), want) : want;
+      ymax = Math.max(Math.abs(r.h), a, showImg ? Math.abs(yi) : 0) * 1.3;
+    }
+    lastView = { xmin, xmax, a, ymax };
     const X = (x) => mx + (x - xmin) / (xmax - xmin) * (W - 2 * mx);
     const Y = (y) => H / 2 - y / ymax * (H / 2 - my);
 
@@ -405,6 +413,22 @@
       arrow(xi, yi, "var(--optic)", !real);
       text(X(xi), Y(yi) + (yi >= 0 ? -10 : 24), real ? "real image" : "virtual image", { "text-anchor": "middle", "font-size": 12, fill: "var(--optic)" });
     }
+    // drag handles
+    const sagAt = (rad, y) => Number.isFinite(rad) ? rad - Math.sign(rad) * Math.sqrt(Math.max(0, rad * rad - y * y)) : 0;
+    const handle = (kind, x, y, label, shape) => {
+      const hg = el("g", { class: "handle", "data-kind": kind, tabindex: 0, role: "button", "aria-label": label, transform: `translate(${X(x).toFixed(1)},${Y(y).toFixed(1)})` }, svg);
+      el("circle", { r: 14, fill: "transparent" }, hg);
+      if (shape === "diamond") el("rect", { x: -6, y: -6, width: 12, height: 12, transform: "rotate(45)", fill: "var(--panel)", stroke: "var(--optic)", "stroke-width": 2 }, hg);
+      else el("circle", { r: 6, fill: "var(--panel)", stroke: shape === "img" ? "var(--optic)" : "var(--ink)", "stroke-width": 2 }, hg);
+      return hg;
+    };
+    handle("object", xo, r.h, "Object: drag to move it, arrow keys to nudge");
+    if (showImg) handle("image", xi, yi, "Image: drag sideways to move the object to match", "img");
+    handle("thick", dcm, 0, "Back surface: drag sideways to change thickness", "diamond");
+    if (mode === "radii") {
+      handle("surf1", sagAt(r.r1, a), a, "Front surface: drag sideways to change its curvature", "img");
+      handle("surf2", dcm + sagAt(r.r2, a), a, "Back surface: drag sideways to change its curvature", "img");
+    }
   }
 
   function describe(r) {
@@ -458,11 +482,82 @@
     $("steps").innerHTML = L.map((s) => `<li>${s}</li>`).join("");
   }
 
-  function update() {
+  function update(frozen) {
     const r = compute();
-    draw(r); readout(r); steps(r);
+    draw(r, frozen); readout(r); steps(r);
     $("status").innerHTML = describe(r);
+    if (focusKind) { const h = svg.querySelector(`.handle[data-kind="${focusKind}"]`); if (h) h.focus({ preventScroll: true }); }
   }
+
+  // ---- dragging ----
+  const round = (v, step) => Math.round(v / step) * step;
+  const fix = (v, dp) => Number(v.toFixed(dp));
+  function toData(e, view) {
+    const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+    const q = p.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: view.xmin + (q.x - mx) / (W - 2 * mx) * (view.xmax - view.xmin), y: (H / 2 - q.y) / (H / 2 - my) * view.ymax };
+  }
+  function setObject(l, h) {
+    l = fix(Math.min(-0.1, Math.max(-500, round(l, 0.1))), 1);
+    $("l").value = l; $("l-range").value = Math.max(-120, l);
+    if (h !== undefined) { h = fix(round(h, 0.05), 2); if (Math.abs(h) < 0.05) h = h < 0 ? -0.05 : 0.05; $("h").value = h; }
+  }
+  function apply(kind, x, y, view) {
+    if (kind === "object") setObject(x, y);
+    else if (kind === "thick") { const d = fix(Math.min(30, Math.max(0, round(x, 0.05))), 2); $("d").value = d; $("d-range").value = d; }
+    else if (kind === "image") {
+      const r = compute(); if (r.afocal) return;
+      const l2A2 = (x - r.dcm) / 100, l2H2 = l2A2 - r.A2H2;
+      if (Math.abs(l2H2) < 1e-6) return;
+      const L1 = r.ni / l2H2 - r.Fe;
+      if (Math.abs(L1) < 1e-9) return;
+      const l1 = (r.no / L1 + r.A1H1) * 100;
+      if (l1 < 0) setObject(l1);
+    } else if (kind === "surf1" || kind === "surf2") {
+      const vertex = kind === "surf1" ? 0 : Math.max(0, num("d", 0));
+      const a = view.a; let sg = x - vertex;
+      sg = Math.max(-0.95 * a, Math.min(0.95 * a, sg));
+      const id = kind === "surf1" ? "r1" : "r2";
+      $(id).value = Math.abs(sg) < 0.02 * a ? "inf" : String(fix(round((sg * sg + a * a) / (2 * sg), 0.1), 1));
+    }
+  }
+  svg.addEventListener("pointerdown", (e) => {
+    const h = e.target.closest(".handle"); if (!h) return;
+    e.preventDefault();
+    drag = { kind: h.dataset.kind, view: lastView, id: e.pointerId };
+    focusKind = drag.kind; svg.setPointerCapture(e.pointerId); svg.classList.add("dragging");
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const p = toData(e, drag.view);
+    apply(drag.kind, p.x, p.y, drag.view);
+    update(drag.view);
+  });
+  const end = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null; svg.classList.remove("dragging");
+    try { svg.releasePointerCapture(e.pointerId); } catch (_) {}
+    update();
+  };
+  svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
+  svg.addEventListener("focusin", (e) => { const h = e.target.closest(".handle"); if (h) focusKind = h.dataset.kind; });
+  svg.addEventListener("focusout", () => { if (!drag) setTimeout(() => { if (!svg.contains(document.activeElement)) focusKind = null; }, 0); });
+  svg.addEventListener("keydown", (e) => {
+    const h = e.target.closest(".handle"); if (!h) return;
+    const dx = { ArrowLeft: -1, ArrowRight: 1 }[e.key] || 0, dy = { ArrowUp: 1, ArrowDown: -1 }[e.key] || 0;
+    if (!dx && !dy) return;
+    e.preventDefault();
+    const kind = h.dataset.kind, r = compute(), big = e.shiftKey ? 5 : 1;
+    if (kind === "object") setObject(r.lcm + dx * 0.5 * big, r.h + dy * 0.1 * big);
+    else if (kind === "thick" && dx) apply("thick", r.dcm + dx * 0.1 * big, 0, lastView);
+    else if (kind === "image" && dx && !r.imgInf) apply("image", r.dcm + cm(r.l2A2) + dx * 0.5 * big, 0, lastView);
+    else if ((kind === "surf1" || kind === "surf2") && dx) {
+      const rad = kind === "surf1" ? r.r1 : r.r2, a = lastView.a;
+      const sg = Number.isFinite(rad) ? rad - Math.sign(rad) * Math.sqrt(Math.max(0, rad * rad - a * a)) : 0;
+      apply(kind, (kind === "surf1" ? 0 : r.dcm) + sg + dx * 0.03 * a * big, 0, lastView);
+    } else return;
+    focusKind = kind; update();
+  });
 
   sel.addEventListener("change", () => loadPreset(+sel.value));
   $("mode-radii").addEventListener("click", () => { if (mode !== "radii") { setMode("radii"); update(); } });

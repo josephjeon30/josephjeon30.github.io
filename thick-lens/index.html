@@ -591,7 +591,7 @@
       setMode("powers"); update();
     }
   });
-  ["no", "nl", "ni", "r1", "r2", "F1in", "F2in", "h"].forEach((id) => $(id).addEventListener("input", update));
+  ["no", "nl", "ni", "r1", "r2", "F1in", "F2in", "h"].forEach((id) => $(id).addEventListener("input", () => update()));
   $("d").addEventListener("input", () => { $("d-range").value = $("d").value; update(); });
   $("d-range").addEventListener("input", () => { $("d").value = $("d-range").value; update(); });
   $("l").addEventListener("input", () => { $("l-range").value = $("l").value; update(); });

@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Modular arithmetic</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="../js/projects.js" defer></script>
+  <style>
+    :root { --hi: var(--accent); --hi2: #1668b0; }
+    .unit { padding: 8px 0 24px; border-bottom: 1px solid var(--border); }
+    .unit:last-of-type { border-bottom: 0; }
+    .unit > h2 { font-size: 1.4rem; margin: 24px 0 4px; }
+    .card-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 14px 0; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 4px 0 12px; }
+    .controls label { display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; color: var(--muted); }
+    .controls input[type=range] { width: 200px; accent-color: var(--accent); }
+    .controls input[type=text], .quiz input {
+      width: 100px; padding: 5px 8px; font: inherit; font-size: 0.95rem;
+      border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--fg);
+    }
+    .num { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 2.5em; display: inline-block; color: var(--fg); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .big { font-size: 1.4rem; font-weight: 600; margin: 0 0 4px; }
+    .err { color: #b3261e; font-size: 0.85rem; }
+    .clock-row { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+    .clock-row svg text { font-family: inherit; }
+    .scroll { overflow-x: auto; }
+    table.t { border-collapse: collapse; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+    table.t td, table.t th { padding: 3px 9px; text-align: right; border-bottom: 1px solid var(--border); }
+    table.t th { color: var(--muted); font-weight: 400; }
+    table.t tr.final td { background: var(--code-bg); color: var(--accent); font-weight: 600; }
+    table.mult td.one { background: var(--accent); color: #fff; }
+    table.mult td.dim, table.mult th.dim { color: #b9ae9b; }
+    .steps div { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92rem; padding: 2px 0; }
+    .quiz h3 { font-size: 1.05rem; margin: 18px 0 4px; }
+    .q { border-top: 1px solid var(--border); padding: 12px 0; }
+    .q p { margin: 0 0 8px; }
+    .q .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .fb { font-size: 0.88rem; margin-top: 6px; min-height: 1.2em; }
+    .fb.ok { color: #2e7d32; } .fb.bad { color: #b3261e; } .fb.info { color: var(--muted); }
+    .score { font-size: 0.95rem; color: var(--muted); margin: 8px 0 0; }
+    .toc { color: var(--muted); font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="name" href="../">calybri</a>
+      <ul>
+        <li><a href="../">Home</a></li>
+        <li><a href="../projects/">Projects</a></li>
+        <li><a href="../blog/">Blog</a></li>
+      </ul>
+    </nav>
+
+    <header class="post-header">
+      <h1>Modular arithmetic</h1>
+      <div class="post-meta">Interactive notes on the way to RSA: clock arithmetic, Euclid's algorithm, and modular inverses.</div>
+    </header>
+
+    <p class="toc">
+      <a href="#unit1">1. Congruence</a> ·
+      <a href="#unit2">2. GCD and Euclid</a> ·
+      <a href="#unit3">3. Modular inverses</a>
+    </p>
+
+    <!-- Unit 1 -->
+    <section class="unit" id="unit1">
+      <h2>1. Congruence and clock arithmetic</h2>
+      <p><b>a ≡ b (mod n)</b> means n divides a − b. Every integer has exactly one representative in {0, 1, …, n−1}: write a = qn + r with 0 ≤ r &lt; n. Congruence respects + and ×, so you can reduce mod n at any step of a calculation. Example: 2³ = 8 ≡ 1 (mod 7), so 2¹⁰⁰ = (2³)³³·2 ≡ 2.</p>
+      <p>Careful with negatives: −7 mod 5 is 3, since −7 = (−2)·5 + 3. JavaScript's <code>-7 % 5</code> gives −2.</p>
+
+      <div class="card-box">
+        <div class="controls">
+          <label>Modulus n <input type="range" id="u1n" min="2" max="16" step="1" value="12"> <span class="num" id="u1nOut">12</span></label>
+          <label>Number a <input type="range" id="u1a" min="-40" max="60" step="1" value="38"> <span class="num" id="u1aOut">38</span></label>
+        </div>
+        <div class="clock-row">
+          <svg id="u1clock" width="260" height="260" viewBox="0 0 260 260" role="img" aria-label="Modular clock"></svg>
+          <div style="flex:1;min-width:200px">
+            <p class="big mono" id="u1eq"></p>
+            <p class="muted mono" id="u1div" style="margin:0 0 10px"></p>
+            <p class="muted small" style="margin:0">Other numbers in the same class:</p>
+            <p class="mono" id="u1cls" style="margin:0"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="quiz" id="quiz1"><h3>Quiz</h3></div>
+    </section>
+
+    <!-- Unit 2 -->
+    <section class="unit" id="unit2">
+      <h2>2. GCD and the Euclidean algorithm</h2>
+      <p><b>Key lemma:</b> gcd(a, b) = gcd(b, a mod b). If a = qb + r, any common divisor of a and b also divides r = a − qb, and any common divisor of b and r divides a. Repeat until the remainder is 0; the last nonzero remainder is the gcd. The remainders at least halve every two steps, so this is fast even on huge numbers.</p>
+      <p>Geometrically: tile an a×b rectangle with the largest squares that fit, then repeat on the leftover strip. The last square's side is the gcd.</p>
+
+      <div class="card-box">
+        <div class="controls">
+          <label>a <input type="text" id="u2a" value="1071"></label>
+          <label>b <input type="text" id="u2b" value="462"></label>
+          <button class="py-run" id="u2run" type="button">Run</button>
+          <button class="py-run" id="u2step" type="button">Next step</button>
+          <button class="py-run" id="u2all" type="button">Show all</button>
+          <span class="err" id="u2err"></span>
+        </div>
+        <svg id="u2rect" width="100%" viewBox="0 0 700 240" role="img" aria-label="Euclid rectangle tiling"></svg>
+        <div class="steps" id="u2steps"></div>
+        <p class="big" id="u2res" style="font-size:1.1rem;margin-top:8px"></p>
+        <p class="muted small" style="margin:0">Try consecutive Fibonacci numbers (89, 55) for the worst case, or 96 and 24 for a one-step finish.</p>
+      </div>
+
+      <div class="quiz" id="quiz2"><h3>Quiz</h3></div>
+    </section>
+
+    <!-- Unit 3 -->
+    <section class="unit" id="unit3">
+      <h2>3. Bézout and modular inverses</h2>
+      <p><b>Bézout's identity:</b> there are integers s, t with a·s + n·t = gcd(a, n). If gcd(a, n) = 1, reducing mod n kills the n·t term, so a·s ≡ 1 and s is the inverse a⁻¹. If gcd(a, n) = d &gt; 1, then d divides every a·x − (multiple of n), so a·x ≡ 1 is impossible. Hence <b>a⁻¹ mod n exists exactly when gcd(a, n) = 1</b>.</p>
+      <p>Extended Euclid tracks the coefficients as it goes: every row keeps r = a·s + n·t, and each new row is the row two above minus q times the row above. In RSA, the private key is d = e⁻¹ mod φ(n), computed exactly this way.</p>
+
+      <div class="card-box">
+        <div class="controls">
+          <label>Inverse of a <input type="text" id="u3a" value="17"></label>
+          <label>mod n <input type="text" id="u3n" value="3120"></label>
+          <button class="py-run" id="u3go" type="button">Compute</button>
+          <span class="err" id="u3err"></span>
+        </div>
+        <div class="scroll"><table class="t" id="u3tab"></table></div>
+        <p class="big" id="u3res" style="font-size:1.1rem;margin:10px 0 2px"></p>
+        <p class="muted mono small" id="u3chk" style="margin:0"></p>
+      </div>
+
+      <div class="card-box">
+        <div class="controls">
+          <label>Multiplication table mod <input type="range" id="u3g" min="2" max="16" step="1" value="10"> <span class="num" id="u3gOut">10</span></label>
+        </div>
+        <p class="muted small" style="margin:0 0 8px">Cells equal to 1 are highlighted. Rows with no 1 have no inverse. <span id="u3units"></span></p>
+        <div class="scroll" id="u3grid"></div>
+      </div>
+
+      <div class="quiz" id="quiz3"><h3>Quiz</h3></div>
+    </section>
+
+    <footer>© 2026 calybri</footer>
+  </div>
+
+  <script>
+    const md = (a, n) => ((a % n) + n) % n;
+    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+    const $ = (id) => document.getElementById(id);
+    const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    // ---------- Quiz component ----------
+    function makeQuiz(containerId, questions) {
+      const box = $(containerId);
+      const got = new Array(questions.length).fill(null);
+      const score = document.createElement('p');
+      score.className = 'score';
+      questions.forEach(([text, answer, why], i) => {
+        const q = document.createElement('div');
+        q.className = 'q';
+        q.innerHTML = `<p>${i + 1}. ${text}</p>
+          <div class="row"><input type="text" placeholder="0" aria-label="Answer">
+          <button class="py-run" type="button">Check</button>
+          <button class="py-run" type="button">Show answer</button></div>
+          <div class="fb"></div>`;
+        const [input] = q.getElementsByTagName('input');
+        const [check, show] = q.getElementsByTagName('button');
+        const fb = q.querySelector('.fb');
+        const say = (cls, msg) => { fb.className = 'fb ' + cls; fb.textContent = msg; };
+        input.addEventListener('input', () => say('', ''));
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') check.click(); });
+        check.addEventListener('click', () => {
+          const v = input.value.trim().replace('−', '-');
+          if (v === '' || !/^-?\d+$/.test(v)) { say('bad', 'Enter a whole number first'); return; }
+          const right = +v === +answer;
+          if (got[i] === null) got[i] = right ? 1 : 0;
+          say(right ? 'ok' : 'bad', right ? 'Correct. ' + why : 'Not quite. Try again or show the answer.');
+          update();
+        });
+        show.addEventListener('click', () => {
+          if (got[i] === null) got[i] = 0;
+          say('info', `Answer: ${answer}. ${why}`);
+          update();
+        });
+        box.appendChild(q);
+      });
+      box.appendChild(score);
+      function update() {
+        const done = got.filter((x) => x !== null).length;
+        const ok = got.filter((x) => x === 1).length;
+        score.textContent = `First-try score: ${ok} / ${done} attempted (${questions.length} total)`;
+      }
+      update();
+    }
+
+    // ---------- Unit 1: modular clock ----------
+    function drawClock() {
+      const n = +$('u1n').value, a = +$('u1a').value, r = md(a, n), q = (a - r) / n;
+      $('u1nOut').textContent = n;
+      $('u1aOut').textContent = a;
+      $('u1eq').textContent = `${a} ≡ ${r} (mod ${n})`;
+      $('u1div').textContent = `${a} = (${q})·${n} + ${r}`;
+      const cls = [];
+      for (let k = -2; k <= 3; k++) cls.push(r + k * n);
+      $('u1cls').textContent = '… ' + cls.join(', ') + ' …';
+      const acc = css('--accent'), fg = css('--fg'), card = css('--card'), border = css('--border'), muted = css('--muted');
+      let s = `<circle cx="130" cy="130" r="100" fill="none" stroke="${border}" stroke-width="1.5"/>`;
+      for (let i = 0; i < n; i++) {
+        const t = 2 * Math.PI * i / n - Math.PI / 2, x = 130 + 100 * Math.cos(t), y = 130 + 100 * Math.sin(t), on = i === r;
+        s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${on ? 16 : 12}" fill="${on ? acc : card}" stroke="${on ? acc : border}"/>`;
+        s += `<text x="${x.toFixed(1)}" y="${(y + 5).toFixed(1)}" text-anchor="middle" font-size="13" fill="${on ? '#fff' : fg}">${i}</text>`;
+      }
+      const t = 2 * Math.PI * r / n - Math.PI / 2;
+      s += `<line x1="130" y1="130" x2="${(130 + 70 * Math.cos(t)).toFixed(1)}" y2="${(130 + 70 * Math.sin(t)).toFixed(1)}" stroke="${acc}" stroke-width="2"/>`;
+      s += `<text x="130" y="135" text-anchor="middle" font-size="12" fill="${muted}">laps: ${q}</text>`;
+      $('u1clock').innerHTML = s;
+    }
+    $('u1n').addEventListener('input', drawClock);
+    $('u1a').addEventListener('input', drawClock);
+    drawClock();
+
+    makeQuiz('quiz1', [
+      ['What is 47 mod 6?', '5', '47 = 7·6 + 5'],
+      ['What is −13 mod 5? (answer in 0..4)', '2', '−13 = (−3)·5 + 2'],
+      ['Find x in 0..10 with 3·x ≡ 1 (mod 11)', '4', '3·4 = 12 = 11 + 1. A preview of inverses (unit 3)'],
+      ['What is 2^100 mod 7?', '2', '2³ ≡ 1, so 2^100 = (2³)^33·2 ≡ 2'],
+      ['What is the last digit of 7^2026, i.e. 7^2026 mod 10?', '9', 'Powers of 7 mod 10 cycle 7, 9, 3, 1 (period 4). 2026 ≡ 2 (mod 4), so the answer is 7² ≡ 9'],
+    ]);
+
+    // ---------- Unit 2: Euclid tiling ----------
+    let E = { steps: [], shown: 0, a: 0, b: 0 };
+    function buildEuclid() {
+      let a = parseInt($('u2a').value, 10), b = parseInt($('u2b').value, 10);
+      if (!(a > 0 && b > 0 && a <= 99999 && b <= 99999)) { $('u2err').textContent = 'Enter whole numbers from 1 to 99999'; return false; }
+      $('u2err').textContent = '';
+      if (b > a) [a, b] = [b, a];
+      const steps = [];
+      let x = a, y = b;
+      while (y > 0) { steps.push([x, Math.floor(x / y), y, x % y]); [x, y] = [y, x % y]; }
+      E = { steps, shown: 0, a, b };
+      return true;
+    }
+    function renderEuclid() {
+      const { a, b, steps, shown } = E;
+      const sc = Math.min(680 / a, 220 / b), W = a * sc, H = b * sc;
+      const cols = [[css('--accent'), '#f3dccd'], ['#1668b0', '#d6e6f5']];
+      $('u2rect').setAttribute('viewBox', `0 0 700 ${Math.ceil(H + 20)}`);
+      let s = `<rect x="10" y="10" width="${W.toFixed(1)}" height="${H.toFixed(1)}" fill="none" stroke="${css('--border')}" stroke-width="1.5"/>`;
+      let ox = 0, oy = 0, w = a, h = b;
+      for (let k = 0; k < shown; k++) {
+        const sz = Math.min(w, h), cnt = Math.floor(Math.max(w, h) / sz), [stroke, fill] = cols[k % 2];
+        for (let j = 0; j < cnt; j++) {
+          const px = w >= h ? ox + j * sz : ox, py = w >= h ? oy : oy + j * sz;
+          s += `<rect x="${(10 + px * sc).toFixed(1)}" y="${(10 + py * sc).toFixed(1)}" width="${(sz * sc).toFixed(1)}" height="${(sz * sc).toFixed(1)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+          if (sz * sc > 28) s += `<text x="${(10 + (px + sz / 2) * sc).toFixed(1)}" y="${(10 + (py + sz / 2) * sc + 5).toFixed(1)}" text-anchor="middle" font-size="12" fill="${stroke}">${sz}</text>`;
+        }
+        if (w >= h) { ox += cnt * sz; w -= cnt * sz; } else { oy += cnt * sz; h -= cnt * sz; }
+      }
+      $('u2rect').innerHTML = s;
+      $('u2steps').innerHTML = steps.slice(0, shown).map((t) => `<div>${t[0]} = ${t[1]}·${t[2]} + ${t[3]}</div>`).join('');
+      if (shown === steps.length) {
+        const g = steps[steps.length - 1][2];
+        $('u2res').textContent = `gcd(${a}, ${b}) = ${g} in ${steps.length} step${steps.length > 1 ? 's' : ''}${g === 1 ? ' (coprime)' : ''}`;
+      } else $('u2res').textContent = '';
+    }
+    $('u2run').addEventListener('click', () => { if (buildEuclid()) renderEuclid(); });
+    $('u2step').addEventListener('click', () => { if (!E.steps.length && !buildEuclid()) return; if (E.shown < E.steps.length) E.shown++; renderEuclid(); });
+    $('u2all').addEventListener('click', () => { if (!E.steps.length && !buildEuclid()) return; E.shown = E.steps.length; renderEuclid(); });
+    ['u2a', 'u2b'].forEach((id) => $(id).addEventListener('input', () => { $('u2err').textContent = ''; E.steps = []; }));
+    buildEuclid(); renderEuclid();
+
+    makeQuiz('quiz2', [
+      ['gcd(84, 36) = ?', '12', '84 = 2·36 + 12, 36 = 3·12 + 0'],
+      ['gcd(1071, 462) = ?', '21', 'Run it in the visualizer to see the 3 steps'],
+      ['For any n ≥ 1, gcd(n, n+1) = ?', '1', 'Any common divisor divides (n+1) − n = 1, so consecutive numbers are always coprime'],
+      ['gcd(6, 15) = ? (so does 6 have an inverse mod 15?)', '3', 'The gcd is 3, not 1, so 6 has no inverse mod 15'],
+      ['Review: −22 mod 7 = ?', '6', '−22 + 28 = 6'],
+      ['Review: 3^50 mod 8 = ?', '1', '3² = 9 ≡ 1 (mod 8), so 3^50 = (3²)^25 ≡ 1'],
+    ]);
+
+    // ---------- Unit 3: extended Euclid + multiplication table ----------
+    function extEuclid() {
+      const a = parseInt($('u3a').value, 10), n = parseInt($('u3n').value, 10);
+      if (!(a > 0 && n > 1 && a < 1e9 && n < 1e9)) { $('u3err').textContent = 'Enter a ≥ 1 and n ≥ 2 (below a billion)'; return; }
+      $('u3err').textContent = '';
+      const R = [['—', n, 0, 1], ['—', a, 1, 0]];
+      while (R[R.length - 1][1] !== 0) {
+        const p = R[R.length - 2], c = R[R.length - 1], q = Math.floor(p[1] / c[1]);
+        R.push([q, p[1] - q * c[1], p[2] - q * c[2], p[3] - q * c[3]]);
+      }
+      let h = '<tr><th>q</th><th>r</th><th>s (coef of a)</th><th>t (coef of n)</th><th>check: a·s + n·t</th></tr>';
+      R.forEach((r, i) => {
+        h += `<tr class="${i === R.length - 2 ? 'final' : ''}"><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${a}·(${r[2]}) + ${n}·(${r[3]}) = ${a * r[2] + n * r[3]}</td></tr>`;
+      });
+      $('u3tab').innerHTML = h;
+      const g = R[R.length - 2];
+      if (g[1] === 1) {
+        const inv = md(g[2], n);
+        $('u3res').textContent = `${a}⁻¹ ≡ ${inv} (mod ${n})`;
+        $('u3chk').textContent = `check: ${a} · ${inv} = ${a * inv} = ${Math.floor(a * inv / n)}·${n} + ${md(a * inv, n)}`;
+      } else {
+        $('u3res').textContent = `gcd = ${g[1]}, so ${a} has no inverse mod ${n}`;
+        $('u3chk').textContent = '';
+      }
+    }
+    $('u3go').addEventListener('click', extEuclid);
+    ['u3a', 'u3n'].forEach((id) => $(id).addEventListener('input', () => { $('u3err').textContent = ''; }));
+    extEuclid();
+
+    function multGrid() {
+      const n = +$('u3g').value;
+      $('u3gOut').textContent = n;
+      const units = [];
+      let h = '<table class="t mult"><tr><th>×</th>';
+      for (let j = 0; j < n; j++) h += `<th>${j}</th>`;
+      h += '</tr>';
+      for (let i = 0; i < n; i++) {
+        const unit = gcd(i, n) === 1;
+        if (unit) units.push(i);
+        h += `<tr><th class="${unit ? '' : 'dim'}">${i}</th>`;
+        for (let j = 0; j < n; j++) {
+          const v = (i * j) % n;
+          h += `<td class="${v === 1 ? 'one' : unit ? '' : 'dim'}">${v}</td>`;
+        }
+        h += '</tr>';
+      }
+      $('u3grid').innerHTML = h + '</table>';
+      $('u3units').textContent = `Invertible mod ${n}: {${units.join(', ')}}, count = ${units.length}.`;
+    }
+    $('u3g').addEventListener('input', multGrid);
+    multGrid();
+
+    makeQuiz('quiz3', [
+      ['Inverse of 3 mod 7?', '5', '3·5 = 15 = 2·7 + 1'],
+      ['Inverse of 7 mod 26?', '15', '7·15 = 105 = 4·26 + 1'],
+      ['Inverse of 17 mod 3120? (the classic RSA private key d)', '2753', '17·2753 = 46801 = 15·3120 + 1. Check it in the table above'],
+      ['Solve 4x ≡ 6 (mod 7), x in 0..6', '5', '4⁻¹ ≡ 2 (since 8 ≡ 1), so x ≡ 2·6 = 12 ≡ 5. Check: 4·5 = 20 ≡ 6'],
+      ['How many a in 1..11 have an inverse mod 12?', '4', '{1, 5, 7, 11}: the numbers coprime to 12. This count is φ(12)'],
+      ['Fill in y: 1071·(−3) + 462·y = 21', '7', '21 = 462 − 3·147 = 462 − 3·(1071 − 2·462) = 7·462 − 3·1071'],
+    ]);
+  </script>
+</body>
+</html>

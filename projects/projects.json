@@ -1,5 +1,11 @@
 [
   {
+    "slug": "modular-arithmetic",
+    "title": "Modular arithmetic",
+    "summary": "Clock arithmetic, Euclid's algorithm and modular inverses, with demos and quizzes on the way to RSA.",
+    "url": "modular/"
+  },
+  {
     "slug": "central-limit-theorem",
     "title": "Central limit theorem",
     "summary": "Sample a population, average each sample, and watch the averages form a bell curve.",

@@ -2,7 +2,7 @@
   {
     "slug": "modular-arithmetic",
     "title": "Modular arithmetic",
-    "summary": "Clock arithmetic, Euclid's algorithm and modular inverses, with demos and quizzes on the way to RSA.",
+    "summary": "Clock arithmetic, Euclid's algorithm and modular inverses: interactive demos on the way to RSA.",
     "url": "modular/"
   },
   {

@@ -97,6 +97,8 @@
       </div>
       <p class="hint" style="margin:6px 6px 0">Drag the object, the image, the back surface (A₂) or the round knob at the top edge of either surface. Handles also move with the arrow keys.</p>
       <p class="status" id="status"></p>
+      <p class="status" id="nodal-status" style="margin-top:2px"></p>
+      <p style="margin:2px 6px 0"><button type="button" id="nodal-reset" class="link-btn" style="background:none;border:0;padding:0;color:var(--ray3);font:inherit;font-size:0.9em;cursor:pointer;text-decoration:underline" hidden>Reattach the purple ray to the object</button></p>
     </div>
 
     <form class="card" id="controls" autocomplete="off">
@@ -314,7 +316,7 @@
   function text(x, y, s, attrs = {}) { const t = el("text", Object.assign({ x, y, "font-family": "JetBrains Mono, ui-monospace, monospace", "font-size": 15, fill: "var(--ink)" }, attrs)); t.textContent = s; return t; }
 
   const W = 1000, H = 460, mx = 30, my = 34;
-  let lastView = null, drag = null, focusKind = null;
+  let lastView = null, drag = null, focusKind = null, nodalSlope = null;
   function draw(r, frozen) {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     const defs = el("defs", {});
@@ -394,7 +396,7 @@
     const rays = [];
     rays.push({ y: r.h, color: "var(--ray1)" });
     if (Math.abs(xo - xF1) > 1e-6) rays.push({ y: r.h * (xH1 - xF1) / (xo - xF1), color: "var(--ray2)" });
-    if (Math.abs(xo - xN1) > 1e-6) rays.push({ y: r.h * (xH1 - xN1) / (xo - xN1), color: "var(--ray3)" });
+    if (nodalSlope === null && Math.abs(xo - xN1) > 1e-6) rays.push({ y: r.h * (xH1 - xN1) / (xo - xN1), color: "var(--ray3)" });
     const real = imgFinite && r.l2H2 > 0;
     const sInf = (0 - r.h) / (xF2 - xH2);
     rays.forEach(({ y, color }) => {
@@ -414,6 +416,18 @@
       arrow(xi, yi, "var(--optic)", !real);
       text(X(xi), Y(yi) + (yi >= 0 ? -10 : 24), real ? "real image" : "virtual image", { "text-anchor": "middle", "font-size": 12, fill: "var(--optic)" });
     }
+    // free nodal ray: aimed at N1, leaves N2 at the same angle
+    const nSlope = nodalSlope !== null ? nodalSlope : (Math.abs(xo - xN1) > 1e-6 ? (0 - r.h) / (xN1 - xo) : 0);
+    lastView.nSlope = nSlope; lastView.xN1 = xN1;
+    if (nodalSlope !== null) {
+      const xs = xmin - 50, xe = xmax + 50, y1 = nSlope * (xH1 - xN1);
+      el("line", { x1: X(xs), y1: Y(nSlope * (xs - xN1)), x2: X(xH1), y2: Y(y1), stroke: "var(--ray3)", "stroke-width": 1.8 }, g);
+      el("line", { x1: X(xH1), y1: Y(y1), x2: X(xH2), y2: Y(y1), stroke: "var(--ray3)", "stroke-width": 1.6, "stroke-dasharray": "5 3" }, g);
+      el("line", { x1: X(xH2), y1: Y(y1), x2: X(xe), y2: Y(nSlope * (xe - xN2)), stroke: "var(--ray3)", "stroke-width": 1.8 }, g);
+    }
+    let xk = xmin + 0.04 * (xmax - xmin), yk = nSlope * (xk - xN1);
+    if (Math.abs(yk) > 0.9 * ymax && nSlope !== 0) { yk = Math.sign(yk) * 0.9 * ymax; xk = xN1 + yk / nSlope; }
+    lastView.xk = xk;
     // drag handles
     const sagAt = (rad, y) => Number.isFinite(rad) ? rad - Math.sign(rad) * Math.sqrt(Math.max(0, rad * rad - y * y)) : 0;
     const handle = (kind, x, y, label, shape) => {
@@ -424,6 +438,7 @@
       return hg;
     };
     handle("object", xo, r.h, "Object: drag to move it, arrow keys to nudge");
+    { const nh = handle("nodal", xk, yk, "Purple ray: drag up or down to change its angle through the nodal points"); nh.querySelector("circle:last-child").setAttribute("stroke", "var(--ray3)"); }
     if (showImg) handle("image", xi, yi, "Image: drag sideways to move the object to match", "img");
     handle("thick", dcm, 0, "Back surface: drag sideways to change thickness", "diamond");
     if (mode === "radii") {
@@ -487,6 +502,11 @@
     const r = compute();
     draw(r, frozen); readout(r); steps(r);
     $("status").innerHTML = describe(r);
+    if (!r.afocal && lastView && lastView.nSlope !== undefined) {
+      const deg = Math.atan(Math.abs(lastView.nSlope)) * 180 / Math.PI;
+      $("nodal-status").innerHTML = `<span style="color:var(--ray3)">Purple ray:</span> heads toward N<sub>1</sub> at ${deg.toFixed(1)}° to the axis and leaves N<sub>2</sub> at the same ${deg.toFixed(1)}°` + (nodalSlope === null ? " (aimed from the object tip)." : ".");
+    } else $("nodal-status").innerHTML = "";
+    $("nodal-reset").hidden = nodalSlope === null;
     if (focusKind) { const h = svg.querySelector(`.handle[data-kind="${focusKind}"]`); if (h) h.focus({ preventScroll: true }); }
   }
 
@@ -505,6 +525,7 @@
   }
   function apply(kind, x, y, view) {
     if (kind === "object") setObject(x, y);
+    else if (kind === "nodal") { const dx = (view.xk ?? x) - view.xN1; if (Math.abs(dx) > 1e-6) nodalSlope = Math.max(-20, Math.min(20, y / dx)); }
     else if (kind === "thick") { const d = fix(Math.min(30, Math.max(0, round(x, 0.05))), 2); $("d").value = d; $("d-range").value = d; }
     else if (kind === "image") {
       const r = compute(); if (r.afocal) return;
@@ -550,6 +571,7 @@
     e.preventDefault();
     const kind = h.dataset.kind, r = compute(), big = e.shiftKey ? 5 : 1;
     if (kind === "object") setObject(r.lcm + dx * 0.5 * big, r.h + dy * 0.1 * big);
+    else if (kind === "nodal" && dy) { const cur = lastView.nSlope || 0; nodalSlope = Math.max(-20, Math.min(20, Math.tan(Math.atan(cur) + dy * (Math.PI / 180) * big))); }
     else if (kind === "thick" && dx) apply("thick", r.dcm + dx * 0.1 * big, 0, lastView);
     else if (kind === "image" && dx && !r.imgInf) apply("image", r.dcm + cm(r.l2A2) + dx * 0.5 * big, 0, lastView);
     else if ((kind === "surf1" || kind === "surf2") && dx) {
@@ -560,7 +582,8 @@
     focusKind = kind; update();
   });
 
-  sel.addEventListener("change", () => loadPreset(+sel.value));
+  sel.addEventListener("change", () => { nodalSlope = null; loadPreset(+sel.value); });
+  $("nodal-reset").addEventListener("click", () => { nodalSlope = null; update(); });
   $("mode-radii").addEventListener("click", () => { if (mode !== "radii") { setMode("radii"); update(); } });
   $("mode-powers").addEventListener("click", () => {
     if (mode !== "powers") {

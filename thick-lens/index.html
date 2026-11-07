@@ -14,13 +14,13 @@
       --ray1: #b45309; --ray2: #0f766e; --ray3: #6d28d9;
       --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
-    .wrap.lens-wrap { max-width: 1080px; }
+    .wrap.lens-wrap { max-width: 1560px; }
     .lens-page { display: grid; gap: 26px; padding-bottom: 8px; }
     .lens-page h2 { font-size: 1.3rem; margin: 0; }
     .lens-page h3 { font-size: 1rem; margin: 0; }
     .lens-page section { padding: 0; }
-    .bench { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
-    @media (max-width: 880px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+    .bench { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+    
     .lens-page .card { display: block; padding: 16px; min-width: 0; }
     .lens-page .card:hover { border-color: var(--border); }
     .diagram { padding: 10px !important; }
@@ -31,7 +31,8 @@
     .status { margin: 8px 6px 0; font-size: 0.95rem; }
     .status strong { color: var(--optic); }
     .warn { color: var(--ray1); }
-    #controls { display: grid; gap: 14px; }
+    #controls { display: grid; gap: 14px 22px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); align-items: start; }
+    #controls fieldset[hidden] { display: none; }
     fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
     fieldset legend { font-weight: 600; font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 4px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -88,7 +89,7 @@
 
   <section class="bench" aria-label="Simulation">
     <div class="card diagram">
-      <svg id="bench" viewBox="0 0 1000 460" role="img" aria-label="Ray diagram of the thick lens"></svg>
+      <svg id="bench" viewBox="0 0 1200 640" role="img" aria-label="Ray diagram of the thick lens"></svg>
       <div class="legend">
         <span><i style="background:var(--ray1)"></i>enters parallel, leaves through f<sub>2</sub></span>
         <span><i style="background:var(--ray2)"></i>enters through f<sub>1</sub>, leaves parallel</span>
@@ -315,7 +316,7 @@
   function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; }
   function text(x, y, s, attrs = {}) { const t = el("text", Object.assign({ x, y, "font-family": "JetBrains Mono, ui-monospace, monospace", "font-size": 15, fill: "var(--ink)" }, attrs)); t.textContent = s; return t; }
 
-  const W = 1000, H = 460, mx = 30, my = 34;
+  const W = 1200, H = 640, mx = 30, my = 40;
   let lastView = null, drag = null, focusKind = null, nodalSlope = null;
   function draw(r, frozen) {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
